@@ -1,0 +1,22 @@
+# Environment variables
+.env
+.env.local
+*.env
+
+# Dependencies
+node_modules/
+
+# Expo & Build outputs
+.expo/
+dist/
+web-build/
+*.tgz
+
+# Native builds
+android/app/build
+ios/build
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
