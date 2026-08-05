@@ -8,7 +8,7 @@ import { EmptyState } from '../components/feedback/EmptyState';
 import { Logo } from '../components/brand/Logo';
 import { apiClient } from '../services/api/client';
 
-export const HomeScreen: React.FC = () => {
+export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'components'>('overview');
   const [buttonLoading, setButtonLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<string | null>(null);
@@ -72,6 +72,14 @@ export const HomeScreen: React.FC = () => {
           <Text style={styles.bodyText}>
             ARKIENT mobile foundation is running with centralized Design Tokens, React Navigation setup, Axios client abstraction, and offline repository abstractions.
           </Text>
+
+          <View style={styles.buttonRow}>
+            <Button
+              variant="primary"
+              label="My Account & Profile"
+              onPress={() => (navigation as any)?.navigate('Profile')}
+            />
+          </View>
 
           <View style={styles.buttonRow}>
             <Button

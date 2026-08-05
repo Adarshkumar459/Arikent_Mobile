@@ -1,39 +1,81 @@
 import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootStackParamList } from './types';
+import { MainStackParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
+import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { AuthNavigator } from './AuthNavigator';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { colors } from '../theme';
 import { BRAND } from '../constants/brand';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<MainStackParamList>();
 
-export const AppNavigator: React.FC = () => {
+const NavigationContent: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Home"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colors.surface,
-          },
-          headerTintColor: colors.textPrimary,
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-          contentStyle: {
-            backgroundColor: colors.background,
-          },
-        }}
-      >
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: BRAND.appName,
+      {isAuthenticated ? (
+        <Stack.Navigator
+          initialRouteName="Home"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.surface,
+            },
+            headerTintColor: colors.textPrimary,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            contentStyle: {
+              backgroundColor: colors.background,
+            },
           }}
-        />
-      </Stack.Navigator>
+        >
+          <Stack.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{
+              title: BRAND.appName,
+            }}
+          />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{
+              title: 'Account Settings',
+            }}
+          />
+        </Stack.Navigator>
+      ) : (
+        <AuthNavigator />
+      )}
     </NavigationContainer>
   );
 };
+
+export const AppNavigator: React.FC = () => {
+  return (
+    <AuthProvider>
+      <NavigationContent />
+    </AuthProvider>
+  );
+};
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
