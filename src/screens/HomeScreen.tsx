@@ -5,6 +5,7 @@ import { colors, spacing, typography, radius, elevation } from '../theme';
 import { Button } from '../components/buttons/Button';
 import { Loading } from '../components/feedback/Loading';
 import { EmptyState } from '../components/feedback/EmptyState';
+import { Logo } from '../components/brand/Logo';
 import { apiClient } from '../services/api/client';
 
 export const HomeScreen: React.FC = () => {
@@ -39,6 +40,9 @@ export const HomeScreen: React.FC = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header Banner */}
       <View style={styles.headerCard}>
+        <View style={styles.logoWrapper}>
+          <Logo size="xl" imageSource={require('../../assets/arkient-logo.png')} />
+        </View>
         <Text style={styles.brandTitle}>{BRAND.appName}</Text>
         <Text style={styles.brandTagline}>{BRAND.tagline}</Text>
         <View style={styles.badge}>
@@ -164,6 +168,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xl,
     ...elevation.medium,
+  },
+  logoWrapper: {
+    marginBottom: spacing.md,
   },
   brandTitle: {
     ...typography.display,
