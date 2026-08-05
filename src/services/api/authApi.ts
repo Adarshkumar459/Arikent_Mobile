@@ -4,6 +4,8 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  avatar?: string;
+  timezone?: string;
   isVerified: boolean;
   createdAt: string;
 }
@@ -41,8 +43,11 @@ export const authApi = {
   getMe: () =>
     apiClient.get<{ success: boolean; message: string; data: { user: UserProfile } }>('/auth/me'),
 
-  updateProfile: (data: { name?: string; email?: string }) =>
+  updateProfile: (data: { name?: string; email?: string; avatar?: string; timezone?: string }) =>
     apiClient.patch<{ success: boolean; message: string; data: { user: UserProfile } }>('/auth/me', data),
+
+  changePassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
+    apiClient.patch<{ success: boolean; message: string }>('/auth/me/password', data),
 
   deleteAccount: () =>
     apiClient.delete<{ success: boolean; message: string }>('/auth/me'),

@@ -10,7 +10,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: { name?: string; email?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; email?: string; avatar?: string; timezone?: string }) => Promise<void>;
+  changePassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   bootstrapAuth: () => Promise<void>;
 }
@@ -110,12 +111,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateProfile = async (data: { name?: string; email?: string }) => {
+  const updateProfile = async (data: { name?: string; email?: string; avatar?: string; timezone?: string }) => {
     const response = await authApi.updateProfile(data);
     if (response.data && response.data.success) {
       setUser(response.data.data.user);
     } else {
       throw new Error(response.data.message || 'Profile update failed');
+    }
+  };
+
+  const changePassword = async (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+    const response = await authApi.changePassword(data);
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data.message || 'Password change failed');
     }
   };
 
@@ -140,6 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         register,
         logout,
         updateProfile,
+        changePassword,
         deleteAccount,
         bootstrapAuth,
       }}
