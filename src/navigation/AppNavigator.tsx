@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainStackParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { AccountSettingsScreen } from '../screens/profile/AccountSettingsScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { colors } from '../theme';
@@ -51,6 +52,13 @@ const NavigationContent: React.FC = () => {
           <Stack.Screen
             name="Profile"
             component={ProfileScreen}
+            options={{
+              title: 'User Profile',
+            }}
+          />
+          <Stack.Screen
+            name="AccountSettings"
+            component={AccountSettingsScreen}
             options={{
               title: 'Account Settings',
             }}
