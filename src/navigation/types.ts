@@ -7,6 +7,9 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Home: undefined;
+  CreateTask: undefined;
+  TaskDetails: { taskId: string };
+  EditTask: { taskId: string };
   Profile: undefined;
   AccountSettings: undefined;
 };
