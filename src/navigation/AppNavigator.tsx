@@ -4,6 +4,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainStackParamList } from './types';
 import { HomeScreen } from '../screens/HomeScreen';
+import { CreateTaskScreen } from '../screens/tasks/CreateTaskScreen';
+import { TaskDetailsScreen } from '../screens/tasks/TaskDetailsScreen';
+import { EditTaskScreen } from '../screens/tasks/EditTaskScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { AccountSettingsScreen } from '../screens/profile/AccountSettingsScreen';
 import { AuthNavigator } from './AuthNavigator';
@@ -46,7 +49,28 @@ const NavigationContent: React.FC = () => {
             name="Home"
             component={HomeScreen}
             options={{
-              title: BRAND.appName,
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="CreateTask"
+            component={CreateTaskScreen}
+            options={{
+              title: 'Create Task',
+            }}
+          />
+          <Stack.Screen
+            name="TaskDetails"
+            component={TaskDetailsScreen}
+            options={{
+              title: 'Task Details',
+            }}
+          />
+          <Stack.Screen
+            name="EditTask"
+            component={EditTaskScreen}
+            options={{
+              title: 'Edit Task',
             }}
           />
           <Stack.Screen

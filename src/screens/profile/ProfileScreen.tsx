@@ -9,6 +9,7 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +27,7 @@ const PRESET_AVATARS = [
 ];
 
 export const ProfileScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const { user, logout, updateProfile, deleteAccount } = useAuth();
 
@@ -94,7 +96,10 @@ export const ProfileScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom + spacing.xl, 40) }]}
+    >
       {/* Header Card with Avatar */}
       <View style={styles.headerCard}>
         <View style={styles.avatarWrapper}>
