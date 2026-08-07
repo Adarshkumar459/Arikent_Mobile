@@ -353,6 +353,87 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             </View>
 
+            {/* Goals Summary Card */}
+            {dashboardData.goals ? (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <View>
+                    <Text style={styles.summaryCardTitle}>Goals Overview</Text>
+                    <Text style={styles.summarySubtitle}>
+                      {dashboardData.goals.total === 0
+                        ? 'No goals set yet'
+                        : `${dashboardData.goals.completed} of ${dashboardData.goals.total} goals completed`}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.rateBadge}
+                    onPress={() => navigation.navigate('Goals')}
+                  >
+                    <Text style={styles.rateBadgeText}>View Goals →</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressBar,
+                      { width: `${Math.min(dashboardData.goals.completionRate, 100)}%` },
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.statsRow}>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statNumber}>{dashboardData.goals.total}</Text>
+                    <Text style={styles.statLabel}>Total</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statNumber, { color: colors.primary }]}>
+                      {dashboardData.goals.active}
+                    </Text>
+                    <Text style={styles.statLabel}>Active</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statNumber, { color: colors.success }]}>
+                      {dashboardData.goals.completed}
+                    </Text>
+                    <Text style={styles.statLabel}>Completed</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statNumber, { color: colors.error }]}>
+                      {dashboardData.goals.overdue}
+                    </Text>
+                    <Text style={styles.statLabel}>Overdue</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Quick Access LifeHub Modules Bar */}
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryCardTitle}>LifeHub Modules</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
+                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Habits')}>
+                  <Text style={styles.rateBadgeText}>⚡ Habits</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Calendar')}>
+                  <Text style={styles.rateBadgeText}>📅 Calendar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Reminders')}>
+                  <Text style={styles.rateBadgeText}>⏰ Reminders</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Expenses')}>
+                  <Text style={styles.rateBadgeText}>💰 Expenses</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Notes')}>
+                  <Text style={styles.rateBadgeText}>📝 Notes</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Interactive Calendar Section */}
             <View style={styles.calendarCard}>
               <View style={styles.calendarHeader}>
