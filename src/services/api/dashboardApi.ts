@@ -22,6 +22,14 @@ export interface CalendarDayData {
   hasTasks: boolean;
 }
 
+export interface GoalSummaryData {
+  total: number;
+  active: number;
+  completed: number;
+  overdue: number;
+  completionRate: number;
+}
+
 export interface DashboardUserData {
   name: string;
   email: string;
@@ -37,6 +45,7 @@ export interface DashboardData {
   todayTasks: TaskItem[];
   upcomingTasks: TaskItem[];
   calendar: CalendarDayData[];
+  goals?: GoalSummaryData;
 }
 
 export interface DashboardParams {
