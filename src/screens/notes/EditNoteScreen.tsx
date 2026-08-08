@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
 import { NoteRepository } from '../../repositories/NoteRepository';
 import { colors, spacing, typography, radius } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { Loading } from '../../components/feedback/Loading';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'EditNote'>;
+type Props = NativeStackScreenProps<any, 'EditNote'>;
 
 export const EditNoteScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { noteId } = route.params;
+  const { noteId } = (route.params || {}) as any;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagsText, setTagsText] = useState('');
@@ -58,7 +57,7 @@ export const EditNoteScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { padding: spacing.lg, gap: spacing.md },
-  header: { ...typography.h2, color: colors.textPrimary },
+  header: { ...typography.heading2, color: colors.textPrimary },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary },
   textArea: { height: 160, textAlignVertical: 'top' },
 });

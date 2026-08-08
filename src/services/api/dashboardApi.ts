@@ -1,56 +1,76 @@
 import { apiClient } from './client';
-import { TaskItem } from './taskApi';
 
-export interface DashboardSummaryData {
-  total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  completionRate: number;
-}
-
-export interface TodaySummaryData {
-  total: number;
-  completed: number;
-  pending: number;
-  inProgress: number;
+export interface DashboardParams {
+  month?: string;
 }
 
 export interface CalendarDayData {
-  date: string; // YYYY-MM-DD
-  taskCount: number;
-  hasTasks: boolean;
-}
-
-export interface GoalSummaryData {
-  total: number;
-  active: number;
-  completed: number;
-  overdue: number;
-  completionRate: number;
-}
-
-export interface DashboardUserData {
-  name: string;
-  email: string;
-  avatar: string | null;
-  timezone: string;
+  date: string;
+  tasksCount?: number;
+  hasHighPriority?: boolean;
+  hasTasks?: boolean;
 }
 
 export interface DashboardData {
   date: string;
-  user: DashboardUserData;
-  summary: DashboardSummaryData;
-  today: TodaySummaryData;
-  todayTasks: TaskItem[];
-  upcomingTasks: TaskItem[];
-  calendar: CalendarDayData[];
-  goals?: GoalSummaryData;
-}
-
-export interface DashboardParams {
-  month?: string; // YYYY-MM
-  date?: string; // YYYY-MM-DD
+  user: {
+    name: string;
+    email: string;
+    avatar: string | null;
+    timezone: string;
+  };
+  summary: {
+    total: number;
+    pending: number;
+    inProgress: number;
+    completed: number;
+    completionRate: number;
+  };
+  today: {
+    total: number;
+    completed: number;
+    pending: number;
+    inProgress: number;
+  };
+  todayTasks: Array<{
+    _id: string;
+    title: string;
+    description?: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    priority: 'low' | 'medium' | 'high';
+    category?: string;
+    dueDate?: string;
+  }>;
+  upcomingTasks?: Array<{
+    _id: string;
+    title: string;
+    description?: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    priority: 'low' | 'medium' | 'high';
+    category?: string;
+    dueDate?: string;
+  }>;
+  calendar?: CalendarDayData[];
+  goals: {
+    total: number;
+    active: number;
+    completed: number;
+    overdue: number;
+    completionRate: number;
+  };
+  expenses: {
+    month: string;
+    currency: string;
+    totalIncome: number;
+    totalExpenses: number;
+    netSavings: number;
+  };
+  upcomingReminders: Array<{
+    _id: string;
+    title: string;
+    scheduledAt: string;
+    category?: string;
+  }>;
 }
 
 export const dashboardApi = {

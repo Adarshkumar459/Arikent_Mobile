@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
 import { NoteRepository } from '../../repositories/NoteRepository';
 import { colors, spacing, typography, radius } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'CreateNote'>;
+type Props = NativeStackScreenProps<any, 'CreateNote'>;
 
 export const CreateNoteScreen: React.FC<Props> = ({ navigation }) => {
   const [title, setTitle] = useState('');
@@ -49,7 +48,7 @@ export const CreateNoteScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { padding: spacing.lg, gap: spacing.md },
-  header: { ...typography.h2, color: colors.textPrimary },
+  header: { ...typography.heading2, color: colors.textPrimary },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary },
   textArea: { height: 160, textAlignVertical: 'top' },
 });

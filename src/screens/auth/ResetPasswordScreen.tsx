@@ -5,9 +5,9 @@ import { Button } from '../../components/buttons/Button';
 import { Logo } from '../../components/brand/Logo';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../navigation/types';
+import { AuthStackParamList } from '../../navigation/types/navigation.types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'ResetPassword'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'CreateNewPassword'>;
 
 export const ResetPasswordScreen: React.FC<Props> = ({ route, navigation }) => {
   const [token, setToken] = useState('');
@@ -17,10 +17,10 @@ export const ResetPasswordScreen: React.FC<Props> = ({ route, navigation }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (route.params?.devToken) {
-      setToken(route.params.devToken);
+    if ((route.params as any)?.resetToken) {
+      setToken((route.params as any).resetToken);
     }
-  }, [route.params?.devToken]);
+  }, [(route.params as any)?.resetToken]);
 
   const handleResetPassword = async () => {
     if (!token.trim() || !password.trim()) {
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    ...typography.h2,
+    ...typography.heading2,
     color: colors.primary,
     marginTop: spacing.md,
   },

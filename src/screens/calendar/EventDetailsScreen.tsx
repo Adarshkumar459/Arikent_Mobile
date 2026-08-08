@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
 import { CalendarRepository } from '../../repositories/CalendarRepository';
 import { CalendarEventItem } from '../../services/api/calendarApi';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { Loading } from '../../components/feedback/Loading';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'EventDetails'>;
+type Props = NativeStackScreenProps<any, 'EventDetails'>;
 
 export const EventDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { eventId } = route.params;
+  const { eventId } = (route.params || {}) as any;
   const [event, setEvent] = useState<CalendarEventItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    CalendarRepository.getEventById(eventId).then((e) => {
-      setEvent(e);
-      setIsLoading(false);
-    });
+    if (eventId) {
+      CalendarRepository.getEventById(eventId).then((e: any) => {
+        setEvent(e);
+        setIsLoading(false);
+      });
+    }
   }, [eventId]);
 
   const handleDelete = () => {
@@ -55,7 +56,7 @@ export const EventDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md },
   card: { backgroundColor: colors.surface, padding: spacing.lg, borderRadius: radius.lg, ...elevation.small },
-  title: { ...typography.h2, color: colors.textPrimary },
+  title: { ...typography.heading2, color: colors.textPrimary },
   desc: { ...typography.body, color: colors.textSecondary, marginTop: spacing.xs },
   time: { ...typography.bodySmall, color: colors.textSecondary, marginTop: spacing.xs },
 });

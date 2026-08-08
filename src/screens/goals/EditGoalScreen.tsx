@@ -11,14 +11,14 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MainStackParamList } from '../../navigation/types';
+import { GoalsStackParamList } from '../../navigation/types/navigation.types';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalCategory, GoalStatus } from '../../services/api/goalApi';
 import { colors, spacing, typography, radius } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { Loading } from '../../components/feedback/Loading';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'EditGoal'>;
+type Props = NativeStackScreenProps<GoalsStackParamList, 'EditGoal'>;
 
 const CATEGORIES: { label: string; value: GoalCategory }[] = [
   { label: 'Learning', value: 'learning' },

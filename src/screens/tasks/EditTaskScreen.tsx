@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TextInput,
-  TouchableOpacity,
+  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
+import { TasksStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing } from '../../theme';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { TextInput, DateInput, DropdownInput } from '../../components/inputs';
+import { PrimaryButton } from '../../components/buttons';
 import { TaskRepository } from '../../repositories/TaskRepository';
-import { TaskCategory, TaskPriority, TaskStatus, RecurrenceFrequency } from '../../services/api/taskApi';
-import { colors, spacing, typography, radius } from '../../theme';
-import { Button } from '../../components/buttons/Button';
-import { Loading } from '../../components/feedback/Loading';
+import { TaskCategory, TaskPriority, TaskStatus } from '../../services/api/taskApi';
+import { ErrorState } from '../../components/states/ErrorState';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'EditTask'>;
+type Props = NativeStackScreenProps<TasksStackParamList, 'EditTask'>;
 
-const CATEGORIES: { label: string; value: TaskCategory }[] = [
+const CATEGORY_OPTIONS = [
   { label: 'Personal', value: 'personal' },
   { label: 'Work', value: 'work' },
   { label: 'Home', value: 'home' },
@@ -29,87 +29,57 @@ const CATEGORIES: { label: string; value: TaskCategory }[] = [
   { label: 'Other', value: 'other' },
 ];
 
-const PRIORITIES: { label: string; value: TaskPriority }[] = [
+const PRIORITY_OPTIONS = [
   { label: 'Low', value: 'low' },
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
 ];
 
-const STATUSES: { label: string; value: TaskStatus }[] = [
+const STATUS_OPTIONS = [
   { label: 'Pending', value: 'pending' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
 ];
 
-const RECURRENCES: { label: string; value: RecurrenceFrequency | 'none' }[] = [
-  { label: 'None', value: 'none' },
-  { label: 'Daily', value: 'daily' },
-  { label: 'Weekly', value: 'weekly' },
-  { label: 'Monthly', value: 'monthly' },
-  { label: 'Yearly', value: 'yearly' },
-];
-
 export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
-  const insets = useSafeAreaInsets();
-  const { taskId } = route.params;
-  const [isLoading, setIsLoading] = useState(true);
+  const taskId = route.params?.taskId;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<TaskCategory>('personal');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [status, setStatus] = useState<TaskStatus>('pending');
-  const [dueDateText, setDueDateText] = useState('');
-  const [recurrence, setRecurrence] = useState<RecurrenceFrequency | 'none'>('none');
-  const [isSaving, setIsSaving] = useState(false);
+  const [dueDate, setDueDate] = useState<string>('');
+  const [isFetching, setIsFetching] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadTask = async () => {
-      setIsLoading(true);
-      setErrorMsg(null);
-      try {
-        const task = await TaskRepository.getTaskById(taskId);
+    if (!taskId) return;
+    TaskRepository.getTaskById(taskId)
+      .then((task) => {
         setTitle(task.title);
         setDescription(task.description || '');
         setCategory(task.category);
         setPriority(task.priority);
         setStatus(task.status);
-        if (task.dueDate) {
-          setDueDateText(task.dueDate.split('T')[0]);
-        }
-        if (task.recurrence) {
-          setRecurrence(task.recurrence.frequency);
-        } else {
-          setRecurrence('none');
-        }
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Failed to load task');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadTask();
+        setDueDate(task.dueDate ? task.dueDate.substring(0, 10) : '');
+      })
+      .catch((err) => {
+        setErrorMsg(err.message || 'Task not found');
+      })
+      .finally(() => {
+        setIsFetching(false);
+      });
   }, [taskId]);
 
   const handleSave = async () => {
-    setErrorMsg(null);
     if (!title.trim()) {
       setErrorMsg('Task title is required');
       return;
     }
 
-    let parsedDueDate: string | null = null;
-    if (dueDateText.trim()) {
-      const dateObj = new Date(dueDateText.trim());
-      if (isNaN(dateObj.getTime())) {
-        setErrorMsg('Invalid due date format (Use YYYY-MM-DD)');
-        return;
-      }
-      parsedDueDate = dateObj.toISOString();
-    }
-
-    setIsSaving(true);
+    setErrorMsg(null);
+    setIsLoading(true);
     try {
       await TaskRepository.updateTask(taskId, {
         title: title.trim(),
@@ -117,272 +87,115 @@ export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
         category,
         priority,
         status,
-        dueDate: parsedDueDate,
-        recurrence: recurrence !== 'none' ? { frequency: recurrence, interval: 1 } : null,
+        dueDate: dueDate.trim() || null,
       });
-
+      setIsLoading(false);
       navigation.goBack();
     } catch (err: any) {
+      setIsLoading(false);
       setErrorMsg(err.message || 'Failed to update task');
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  if (isLoading) {
-    return <Loading message="Loading task details..." />;
+  if (isFetching) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Edit Task" onBackPress={() => navigation.goBack()} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + spacing.xl, 40) }]}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader title="Edit Task" onBackPress={() => navigation.goBack()} />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.screenHeader}>Edit Task</Text>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {errorMsg ? (
+            <ErrorState title="Error" message={errorMsg} onRetry={() => setErrorMsg(null)} retryLabel="Dismiss" />
+          ) : null}
 
-        {errorMsg ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          </View>
-        ) : null}
-
-        {/* Title Input */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Title *</Text>
           <TextInput
-            style={styles.textInput}
+            label="TASK TITLE"
+            placeholder="e.g. Complete quarterly report"
             value={title}
             onChangeText={setTitle}
           />
-        </View>
 
-        {/* Description Input */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Description</Text>
           <TextInput
-            style={[styles.textInput, styles.textArea]}
+            label="DESCRIPTION"
+            placeholder="Add details or notes..."
             value={description}
             onChangeText={setDescription}
             multiline
             numberOfLines={4}
           />
-        </View>
 
-        {/* Category Picker */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.chipRow}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={[
-                  styles.chip,
-                  category === cat.value && styles.chipActive,
-                ]}
-                onPress={() => setCategory(cat.value)}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    category === cat.value && styles.chipTextActive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Priority Selector */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Priority</Text>
-          <View style={styles.chipRow}>
-            {PRIORITIES.map((prio) => (
-              <TouchableOpacity
-                key={prio.value}
-                style={[
-                  styles.chip,
-                  priority === prio.value && styles.chipActivePriority,
-                ]}
-                onPress={() => setPriority(prio.value)}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    priority === prio.value && styles.chipTextActive,
-                  ]}
-                >
-                  {prio.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Status Selector */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Status</Text>
-          <View style={styles.chipRow}>
-            {STATUSES.map((stat) => (
-              <TouchableOpacity
-                key={stat.value}
-                style={[
-                  styles.chip,
-                  status === stat.value && styles.chipActiveStatus,
-                ]}
-                onPress={() => setStatus(stat.value)}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    status === stat.value && styles.chipTextActive,
-                  ]}
-                >
-                  {stat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Due Date Input */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Due Date (YYYY-MM-DD)</Text>
-          <TextInput
-            style={styles.textInput}
-            value={dueDateText}
-            onChangeText={setDueDateText}
+          <DropdownInput
+            label="STATUS"
+            options={STATUS_OPTIONS}
+            value={status}
+            onSelect={(val) => setStatus(val as TaskStatus)}
           />
-        </View>
 
-        {/* Recurrence Selector */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Recurrence</Text>
-          <View style={styles.chipRow}>
-            {RECURRENCES.map((rec) => (
-              <TouchableOpacity
-                key={rec.value}
-                style={[
-                  styles.chip,
-                  recurrence === rec.value && styles.chipActive,
-                ]}
-                onPress={() => setRecurrence(rec.value)}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    recurrence === rec.value && styles.chipTextActive,
-                  ]}
-                >
-                  {rec.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Save Action */}
-        <View style={styles.buttonWrapper}>
-          <Button
-            variant="primary"
-            label="Save Changes"
-            isLoading={isSaving}
-            onPress={handleSave}
+          <DropdownInput
+            label="CATEGORY"
+            options={CATEGORY_OPTIONS}
+            value={category}
+            onSelect={(val) => setCategory(val as TaskCategory)}
           />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <DropdownInput
+            label="PRIORITY"
+            options={PRIORITY_OPTIONS}
+            value={priority}
+            onSelect={(val) => setPriority(val as TaskPriority)}
+          />
+
+          <DateInput
+            label="DUE DATE"
+            placeholder="YYYY-MM-DD"
+            value={dueDate}
+            onChangeDate={setDueDate}
+          />
+
+          <View style={styles.actionWrapper}>
+            <PrimaryButton
+              title="Save Changes"
+              onPress={handleSave}
+              isLoading={isLoading}
+              disabled={isLoading}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  content: {
     padding: spacing.lg,
+    gap: spacing.md,
   },
-  screenHeader: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-  },
-  errorCard: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.lg,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  inputGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.label,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  textInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  chip: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    marginRight: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipActivePriority: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipActiveStatus: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  buttonWrapper: {
+  actionWrapper: {
     marginTop: spacing.md,
-    marginBottom: spacing.xl,
   },
 });

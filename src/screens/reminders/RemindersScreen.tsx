@@ -1,30 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  SafeAreaView,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MainStackParamList } from '../../navigation/types';
+import { CalendarStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, radius, elevation } from '../../theme';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { CategoryChip } from '../../components/chips/CategoryChip';
+import { ReminderCard } from '../../components/cards/ReminderCard';
 import { ReminderRepository } from '../../repositories/ReminderRepository';
 import { ReminderItem, ReminderType } from '../../services/api/reminderApi';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { Button } from '../../components/buttons/Button';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { RemindersEmptyScreen } from './RemindersEmptyScreen';
+import { LoadingState } from '../../components/states/LoadingState';
+import { ErrorState } from '../../components/states/ErrorState';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Reminders'>;
+type Props = NativeStackScreenProps<CalendarStackParamList, 'Reminders'>;
+
+const CATEGORIES: Array<{ label: string; value?: ReminderType }> = [
+  { label: 'All' },
+  { label: 'General', value: 'general' },
+  { label: 'Task', value: 'task' },
+  { label: 'Goal', value: 'goal' },
+  { label: 'Bill', value: 'bill' },
+  { label: 'Calendar', value: 'calendar' },
+];
 
 export const RemindersScreen: React.FC<Props> = ({ navigation }) => {
-  const insets = useSafeAreaInsets();
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
-  const [filterType, setFilterType] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<ReminderType | undefined>(undefined);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const fetchReminders = async () => {
-    setIsLoading(true);
+  const fetchReminders = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    setErrorMsg(null);
     try {
-      const res = await ReminderRepository.getReminders(filterType !== 'all' ? { type: filterType as ReminderType } : undefined);
+      const res = await ReminderRepository.getReminders({
+        type: selectedType,
+      });
       setReminders(res.items);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to fetch reminders');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -32,65 +56,138 @@ export const RemindersScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', fetchReminders);
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchReminders(reminders.length === 0);
+    });
     return unsubscribe;
-  }, [navigation, filterType]);
+  }, [navigation, selectedType]);
+
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    fetchReminders(false);
+  }, [selectedType]);
+
+  if (isLoading && !isRefreshing) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Reminders" />
+        <View style={styles.centered}>
+          <LoadingState message="Loading your reminders..." />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errorMsg && reminders.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Reminders" />
+        <View style={styles.centered}>
+          <ErrorState message={errorMsg} onRetry={() => fetchReminders(true)} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.container, { paddingBottom: Math.max(insets.bottom + spacing.xl, 40) }]}
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => { setIsRefreshing(true); fetchReminders(); }} colors={[colors.primary]} />}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Reminders</Text>
-        <Button variant="primary" label="+ Add Reminder" onPress={() => navigation.navigate('CreateReminder')} />
+    <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader title="Reminders" />
+
+      {/* Category Pills */}
+      <View style={styles.categoryContainer}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={CATEGORIES}
+          keyExtractor={(item) => item.label}
+          contentContainerStyle={styles.categoryList}
+          renderItem={({ item }) => (
+            <CategoryChip
+              label={item.label}
+              selected={selectedType === item.value}
+              onPress={() => setSelectedType(item.value)}
+            />
+          )}
+        />
       </View>
 
-      <View style={styles.chipRow}>
-        {(['all', 'task', 'bill', 'goal', 'general'] as const).map((t) => (
-          <TouchableOpacity key={t} style={[styles.chip, filterType === t && styles.chipActive]} onPress={() => setFilterType(t)}>
-            <Text style={[styles.chipText, filterType === t && styles.chipTextActive]}>{t.toUpperCase()}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {isLoading && !isRefreshing ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-      ) : reminders.length === 0 ? (
-        <EmptyState title="No Reminders Scheduled" description="Keep track of upcoming bills, tasks and goals." actionLabel="+ Add Reminder" onAction={() => navigation.navigate('CreateReminder')} />
+      {/* Reminders List */}
+      {reminders.length === 0 ? (
+        <RemindersEmptyScreen />
       ) : (
-        <View style={styles.list}>
-          {reminders.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.card} onPress={() => navigation.navigate('ReminderDetails', { reminderId: item.id })}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={styles.typeBadge}>
-                  <Text style={styles.typeText}>{item.type.toUpperCase()}</Text>
-                </View>
-              </View>
-              <Text style={styles.cardDate}>Scheduled: {new Date(item.scheduledAt).toLocaleString()}</Text>
+        <FlatList
+          data={reminders}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('ReminderDetails', { reminderId: item.id })}
+            >
+              <ReminderCard
+                title={item.title}
+                time={new Date(item.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                date={new Date(item.scheduledAt).toLocaleDateString()}
+                category={item.type}
+              />
             </TouchableOpacity>
-          ))}
-        </View>
+          )}
+        />
       )}
-    </ScrollView>
+
+      {/* Floating Add Reminder CTA */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('AddReminder')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { ...typography.h2, color: colors.textPrimary },
-  chipRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  chip: { backgroundColor: colors.surface, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { ...typography.caption, color: colors.textSecondary },
-  chipTextActive: { color: '#FFF' },
-  list: { gap: spacing.sm },
-  card: { backgroundColor: colors.surface, padding: spacing.md, borderRadius: radius.lg, ...elevation.small },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { ...typography.h3, color: colors.textPrimary },
-  typeBadge: { backgroundColor: colors.background, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
-  typeText: { ...typography.caption, fontSize: 10, color: colors.textSecondary, fontWeight: '700' },
-  cardDate: { ...typography.caption, color: colors.textSecondary, marginTop: 4 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryContainer: {
+    marginVertical: spacing.xs,
+  },
+  categoryList: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+  },
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 80,
+    gap: spacing.md,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...elevation.large,
+  },
+  fabText: {
+    color: colors.surface,
+    fontSize: 32,
+    fontWeight: '400',
+    marginTop: -3,
+  },
 });

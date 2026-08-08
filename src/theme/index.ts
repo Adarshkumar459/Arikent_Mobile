@@ -1,20 +1,39 @@
 import { colors } from './colors';
-import { typography, fontFamily } from './typography';
+import { typography, fontFamily, fontSize, fontWeight, lineHeight } from './typography';
 import { spacing } from './spacing';
 import { radius } from './radius';
 import { elevation } from './elevation';
+import { iconSizes, iconNames } from './icons';
 import { getButtonStyle, ButtonVariant, ButtonState } from './buttons';
 
 export const theme = {
   colors,
   typography,
   fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
   spacing,
   radius,
   elevation,
+  iconSizes,
+  iconNames,
   getButtonStyle,
 } as const;
 
 export type Theme = typeof theme;
 export type { ButtonVariant, ButtonState };
-export { colors, typography, fontFamily, spacing, radius, elevation, getButtonStyle };
+export {
+  colors,
+  typography,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  spacing,
+  radius,
+  elevation,
+  iconSizes,
+  iconNames,
+  getButtonStyle,
+};

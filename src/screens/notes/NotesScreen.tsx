@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MainStackParamList } from '../../navigation/types';
 import { NoteRepository } from '../../repositories/NoteRepository';
 import { NoteItem } from '../../services/api/noteApi';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { EmptyState } from '../../components/feedback/EmptyState';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Notes'>;
+type Props = NativeStackScreenProps<any, 'Notes'>;
 
 export const NotesScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -88,12 +87,12 @@ export const NotesScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { ...typography.h2, color: colors.textPrimary },
+  title: { ...typography.heading2, color: colors.textPrimary },
   searchInput: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary },
   list: { gap: spacing.sm },
   card: { backgroundColor: colors.surface, padding: spacing.md, borderRadius: radius.lg, ...elevation.small },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  noteTitle: { ...typography.h3, color: colors.textPrimary, flex: 1 },
+  noteTitle: { ...typography.heading3, color: colors.textPrimary, flex: 1 },
   pinBadge: { ...typography.caption, color: colors.primary, fontWeight: '700' },
   noteSnippet: { ...typography.bodySmall, color: colors.textSecondary, marginTop: 4 },
   tagRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs, flexWrap: 'wrap' },

@@ -32,6 +32,7 @@ export interface HabitCheckInItem {
   habitId: string;
   userId: string;
   checkInDate: string;
+  date?: string;
   completedAt: string;
   note?: string;
   createdAt: string;
@@ -72,6 +73,8 @@ export interface CreateHabitData {
   category?: string;
   frequency: HabitFrequency;
   reminder?: HabitReminder;
+  reminderEnabled?: boolean;
+  reminderTime?: string;
   targetPerPeriod?: number;
 }
 
