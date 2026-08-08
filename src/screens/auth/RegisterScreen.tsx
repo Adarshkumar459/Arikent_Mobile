@@ -1,180 +1,193 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
-import { Button } from '../../components/buttons/Button';
-import { Logo } from '../../components/brand/Logo';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  SafeAreaView,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../navigation/types';
+import { AuthStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, typography, radius } from '../../theme';
+import { TextInput, PasswordInput } from '../../components/inputs';
+import { PrimaryButton } from '../../components/buttons';
+import { useAuth } from '../../context/AuthContext';
+import { ErrorState } from '../../components/states/ErrorState';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
-  const { register } = useAuth();
+  const { register, isLoading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      setErrorMessage('Please fill in all fields.');
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setErrorMsg('Please fill in all required fields');
       return;
     }
-
-    if (password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters long.');
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match');
       return;
     }
-
-    setLoading(true);
-    setErrorMessage(null);
+    if (!agreeTerms) {
+      setErrorMsg('You must agree to Terms & Conditions');
+      return;
+    }
+    setErrorMsg(null);
     try {
-      await register(email, password, name);
+      await register(email.trim(), password, name.trim());
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Registration failed';
-      setErrorMessage(msg);
-    } finally {
-      setLoading(false);
+      setErrorMsg(err.message || 'Registration failed. Please try again.');
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Logo size="lg" />
-        <Text style={styles.title}>Create ARKIENT Account</Text>
-        <Text style={styles.subtitle}>Join ARKIENT to sync everything that matters.</Text>
-      </View>
-
-      <View style={styles.card}>
-        {errorMessage ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Sign up to get started</Text>
           </View>
-        ) : null}
 
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="John Doe"
-          placeholderTextColor={colors.textSecondary}
-        />
+          {errorMsg ? (
+            <ErrorState title="Registration Error" message={errorMsg} onRetry={() => setErrorMsg(null)} retryLabel="Dismiss" />
+          ) : null}
 
-        <Text style={styles.label}>Email Address</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor={colors.textSecondary}
-        />
+          <View style={styles.form}>
+            <TextInput
+              label="NAME"
+              placeholder="Adarsh Kumar"
+              value={name}
+              onChangeText={setName}
+            />
 
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="At least 8 characters"
-          secureTextEntry
-          placeholderTextColor={colors.textSecondary}
-        />
+            <TextInput
+              label="EMAIL"
+              placeholder="example@mail.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
 
-        <Button
-          variant="primary"
-          label="Create Account"
-          isLoading={loading}
-          onPress={handleRegister}
-          style={styles.button}
-        />
+            <PasswordInput
+              label="PASSWORD"
+              placeholder="••••••••"
+              value={password}
+              onChangeText={setPassword}
+            />
 
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.linkText}>Log In</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+            <PasswordInput
+              label="CONFIRM PASSWORD"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setAgreeTerms(!agreeTerms)}>
+              <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
+                {agreeTerms ? <Text style={styles.checkText}>✓</Text> : null}
+              </View>
+              <Text style={styles.checkboxLabel}>I agree to Terms & Conditions</Text>
+            </TouchableOpacity>
+
+            <PrimaryButton
+              title="Create Account"
+              onPress={handleRegister}
+              isLoading={isLoading}
+              disabled={isLoading}
+            />
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Login</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    padding: spacing.xl,
-    justifyContent: 'center',
-    minHeight: '100%',
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    gap: spacing.lg,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
   title: {
-    ...typography.h2,
-    color: colors.primary,
-    marginTop: spacing.md,
+    ...typography.display,
+    color: colors.textPrimary,
   },
   subtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
   },
-  card: {
-    backgroundColor: colors.surface,
-    padding: spacing.xl,
-    borderRadius: radius.xl,
-    ...elevation.medium,
+  form: {
+    gap: spacing.md,
   },
-  label: {
-    ...typography.caption,
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginVertical: spacing.xs,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: radius.xs,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+  },
+  checkText: {
+    color: colors.surface,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-    marginTop: spacing.md,
   },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  button: {
-    marginTop: spacing.xl,
-  },
-  errorBox: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-  },
-  errorText: {
+  checkboxLabel: {
     ...typography.bodySmall,
-    color: colors.error,
-    fontWeight: '600',
+    color: colors.textPrimary,
   },
-  footerRow: {
+  footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
   footerText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
-  linkText: {
+  loginLink: {
     ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '700',

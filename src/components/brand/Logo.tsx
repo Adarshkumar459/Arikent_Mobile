@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
-import { colors, radius, elevation } from '../../theme';
+import { colors, elevation } from '../../theme';
 
 interface LogoProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'large' | string;
   showText?: boolean;
   imageSource?: ImageSourcePropType;
 }
@@ -14,7 +14,8 @@ export const Logo: React.FC<LogoProps> = ({
   imageSource = require('../../../assets/arkient-logo.png'),
 }) => {
   const getDimensions = () => {
-    switch (size) {
+    const normSize = size === 'large' ? 'lg' : size;
+    switch (normSize) {
       case 'sm':
         return { box: 36, font: 16, icon: 20 };
       case 'lg':
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   emblemText: {
-    color: '#FFFFFF',
+    color: colors.surface,
     fontWeight: '800',
     letterSpacing: -1,
   },

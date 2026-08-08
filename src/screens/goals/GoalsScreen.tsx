@@ -3,40 +3,59 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
+  SafeAreaView,
+  Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
+import { GoalsStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, radius, elevation } from '../../theme';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { CategoryChip } from '../../components/chips/CategoryChip';
+import { GoalCard } from '../../components/cards/GoalCard';
 import { GoalRepository } from '../../repositories/GoalRepository';
-import { GoalItem, GoalStatus, GoalCategory } from '../../services/api/goalApi';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { Button } from '../../components/buttons/Button';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { GoalItem, GoalCategory } from '../../services/api/goalApi';
+import { GoalOptionsSheet } from '../../components/sheets/GoalOptionsSheet';
+import { GoalLoadingScreen } from './GoalLoadingScreen';
+import { GoalEmptyScreen } from './GoalEmptyScreen';
+import { GoalErrorScreen } from './GoalErrorScreen';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Goals'>;
+type Props = NativeStackScreenProps<GoalsStackParamList, 'GoalList'>;
 
-type FilterTab = 'all' | 'active' | 'completed' | 'overdue';
+const CATEGORIES: Array<{ label: string; value?: GoalCategory }> = [
+  { label: 'All' },
+  { label: 'Learning', value: 'learning' },
+  { label: 'Money', value: 'money' },
+  { label: 'Health', value: 'health' },
+  { label: 'Career', value: 'career' },
+  { label: 'Personal', value: 'personal' },
+  { label: 'Other', value: 'other' },
+];
 
 export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
-  const insets = useSafeAreaInsets();
   const [goals, setGoals] = useState<GoalItem[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [selectedCategory, setSelectedCategory] = useState<GoalCategory | undefined>(undefined);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Selected goal for options sheet
+  const [activeGoal, setActiveGoal] = useState<GoalItem | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const fetchGoals = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await GoalRepository.getGoals();
+      const res = await GoalRepository.getGoals({
+        category: selectedCategory,
+      });
       setGoals(res.items);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to load goals');
+      setErrorMsg(err.message || 'Failed to fetch goals');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -48,511 +67,149 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
       fetchGoals(goals.length === 0);
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, selectedCategory]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchGoals(false);
-  }, []);
+  }, [selectedCategory]);
 
-  // Filter goals
-  const todayStr = new Date().toISOString().substring(0, 10);
-  const filteredGoals = goals.filter((g) => {
-    if (activeFilter === 'active') return g.status === 'active';
-    if (activeFilter === 'completed') return g.status === 'completed';
-    if (activeFilter === 'overdue') {
-      if (g.status !== 'active' || !g.deadline) return false;
-      return g.deadline.substring(0, 10) < todayStr;
+  const handleOpenSheet = (item: GoalItem) => {
+    setActiveGoal(item);
+    setIsSheetOpen(true);
+  };
+
+  const handleDeleteActiveGoal = async () => {
+    if (!activeGoal) return;
+    try {
+      await GoalRepository.deleteGoal(activeGoal.id);
+      setIsSheetOpen(false);
+      fetchGoals(false);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to delete goal');
     }
-    return true;
-  });
+  };
 
-  const totalCount = goals.length;
-  const activeCount = goals.filter((g) => g.status === 'active').length;
-  const completedCount = goals.filter((g) => g.status === 'completed').length;
-  const overdueCount = goals.filter((g) => {
-    if (g.status !== 'active' || !g.deadline) return false;
-    return g.deadline.substring(0, 10) < todayStr;
-  }).length;
+  if (isLoading && !isRefreshing) {
+    return <GoalLoadingScreen />;
+  }
 
-  const overallProgress =
-    totalCount === 0
-      ? 0
-      : Math.round(
-          (goals.reduce(
-            (acc, g) =>
-              acc + Math.min(100, Math.round((g.currentValue / g.targetValue) * 100)),
-            0
-          ) /
-            totalCount)
-        );
+  if (errorMsg && goals.length === 0) {
+    return <GoalErrorScreen errorMessage={errorMsg} onRetry={() => fetchGoals(true)} />;
+  }
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom + spacing.xl, 40) },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-        }
-      >
-        {/* Header Action */}
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.screenTitle}>My Goals</Text>
-            <Text style={styles.screenSubtitle}>Track progress & hit your milestones</Text>
-          </View>
-          <Button
-            variant="primary"
-            label="+ Add Goal"
-            onPress={() => navigation.navigate('CreateGoal')}
-            style={styles.addBtn}
-          />
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader title="My Goals" />
 
-        {/* Error State */}
-        {errorMsg ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-            <Button variant="secondary" label="Retry" onPress={() => fetchGoals(true)} style={styles.retryBtn} />
-          </View>
-        ) : null}
+      {/* Category Pills */}
+      <View style={styles.categoryContainer}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={CATEGORIES}
+          keyExtractor={(item) => item.label}
+          contentContainerStyle={styles.categoryList}
+          renderItem={({ item }) => (
+            <CategoryChip
+              label={item.label}
+              selected={selectedCategory === item.value}
+              onPress={() => setSelectedCategory(item.value)}
+            />
+          )}
+        />
+      </View>
 
-        {/* Summary Card */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHeader}>
-            <Text style={styles.summaryTitle}>Goals Overview</Text>
-            <View style={styles.rateBadge}>
-              <Text style={styles.rateBadgeText}>{overallProgress}% Progress</Text>
-            </View>
-          </View>
-
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressBar, { width: `${Math.min(overallProgress, 100)}%` }]} />
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{totalCount}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: colors.primary }]}>{activeCount}</Text>
-              <Text style={styles.statLabel}>Active</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: colors.success }]}>{completedCount}</Text>
-              <Text style={styles.statLabel}>Completed</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: colors.error }]}>{overdueCount}</Text>
-              <Text style={styles.statLabel}>Overdue</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Filter Segmented Tabs */}
-        <View style={styles.filterBar}>
-          {(['all', 'active', 'completed', 'overdue'] as const).map((tab) => (
+      {/* Goals List */}
+      {goals.length === 0 ? (
+        <GoalEmptyScreen />
+      ) : (
+        <FlatList
+          data={goals}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+          }
+          renderItem={({ item }) => (
             <TouchableOpacity
-              key={tab}
-              style={[styles.filterTab, activeFilter === tab && styles.filterTabActive]}
-              onPress={() => setActiveFilter(tab)}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('GoalDetails', { goalId: item.id })}
+              onLongPress={() => handleOpenSheet(item)}
             >
-              <Text style={[styles.filterTabText, activeFilter === tab && styles.filterTabTextActive]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </Text>
+              <GoalCard
+                title={item.title}
+                currentValue={item.currentValue}
+                targetValue={item.targetValue}
+                unit={item.unit}
+                deadline={item.deadline ? new Date(item.deadline).toLocaleDateString() : undefined}
+                category={item.category}
+              />
             </TouchableOpacity>
-          ))}
-        </View>
+          )}
+        />
+      )}
 
-        {/* Loading State */}
-        {isLoading && !isRefreshing ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Fetching your goals...</Text>
-          </View>
-        ) : filteredGoals.length === 0 ? (
-          <EmptyState
-            title={
-              goals.length === 0
-                ? 'No goals yet'
-                : `No ${activeFilter} goals`
-            }
-            description={
-              goals.length === 0
-                ? 'Create your first goal and start tracking your progress.'
-                : 'Try changing your filter options or add a new goal.'
-            }
-            actionLabel="+ Add Goal"
-            onAction={() => navigation.navigate('CreateGoal')}
-          />
-        ) : (
-          /* Goal List */
-          <View style={styles.goalList}>
-            {filteredGoals.map((item) => {
-              const progressPct = Math.min(
-                100,
-                Math.max(0, Math.round((item.currentValue / item.targetValue) * 100))
-              );
-              const isCompleted = item.status === 'completed';
-              const isOverdue =
-                item.status === 'active' &&
-                item.deadline &&
-                item.deadline.substring(0, 10) < todayStr;
+      {/* Floating Add Goal CTA */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('AddGoal')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
 
-              const completedMilestones = item.milestones.filter((m) => m.completed).length;
-
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.goalCard}
-                  onPress={() => navigation.navigate('GoalDetails', { goalId: item.id })}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.cardHeader}>
-                    <View style={styles.titleWrapper}>
-                      <Text style={styles.goalTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      {item.description ? (
-                        <Text style={styles.goalDesc} numberOfLines={1}>
-                          {item.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        isCompleted
-                          ? styles.statusCompleted
-                          : isOverdue
-                          ? styles.statusOverdue
-                          : styles.statusActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusText,
-                          isCompleted
-                            ? styles.statusTextCompleted
-                            : isOverdue
-                            ? styles.statusTextOverdue
-                            : styles.statusTextActive,
-                        ]}
-                      >
-                        {isCompleted ? 'Completed' : isOverdue ? 'Overdue' : 'Active'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress Bar & Numeric Indicator */}
-                  <View style={styles.cardProgressSection}>
-                    <View style={styles.progressLabelRow}>
-                      <Text style={styles.progressValueText}>
-                        {item.currentValue} / {item.targetValue} {item.unit}
-                      </Text>
-                      <Text style={styles.progressPctText}>{progressPct}%</Text>
-                    </View>
-                    <View style={styles.cardProgressTrack}>
-                      <View
-                        style={[
-                          styles.cardProgressBar,
-                          { width: `${progressPct}%` },
-                          isCompleted && { backgroundColor: colors.success },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Card Footer */}
-                  <View style={styles.cardFooter}>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>{item.category.toUpperCase()}</Text>
-                    </View>
-
-                    {item.milestones.length > 0 ? (
-                      <Text style={styles.milestoneText}>
-                        {completedMilestones}/{item.milestones.length} milestones
-                      </Text>
-                    ) : null}
-
-                    {item.deadline ? (
-                      <Text style={[styles.deadlineText, isOverdue && styles.deadlineTextOverdue]}>
-                        Due: {new Date(item.deadline).toLocaleDateString()}
-                      </Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
-    </View>
+      {/* Contextual Action Sheet */}
+      <GoalOptionsSheet
+        visible={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        onEdit={() => {
+          setIsSheetOpen(false);
+          if (activeGoal) navigation.navigate('EditGoal', { goalId: activeGoal.id });
+        }}
+        onUpdateProgress={() => {
+          setIsSheetOpen(false);
+          if (activeGoal) navigation.navigate('UpdateGoalProgress', { goalId: activeGoal.id });
+        }}
+        onDelete={handleDeleteActiveGoal}
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: spacing.lg,
+  categoryContainer: {
+    marginVertical: spacing.xs,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
+  categoryList: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
   },
-  screenTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-  },
-  screenSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  addBtn: {
-    paddingHorizontal: spacing.md,
-  },
-  errorCard: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginBottom: spacing.xs,
-  },
-  retryBtn: {
-    marginTop: spacing.xs,
-  },
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...elevation.small,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  summaryTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  rateBadge: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-  },
-  rateBadgeText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: '#F3F4F6',
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: colors.border,
-  },
-  filterBar: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    padding: spacing.xs,
-    borderRadius: radius.lg,
-    marginBottom: spacing.lg,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-    alignItems: 'center',
-    borderRadius: radius.md,
-  },
-  filterTabActive: {
-    backgroundColor: colors.primary,
-  },
-  filterTabText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  filterTabTextActive: {
-    color: '#FFFFFF',
-  },
-  loadingBox: {
-    paddingVertical: spacing['2xl'],
-    alignItems: 'center',
-  },
-  loadingText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
-  goalList: {
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 80,
     gap: spacing.md,
   },
-  goalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...elevation.small,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
-  titleWrapper: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  goalTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  goalDesc: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
     borderRadius: radius.full,
-  },
-  statusActive: {
-    backgroundColor: colors.primaryLight,
-  },
-  statusCompleted: {
-    backgroundColor: '#DCFCE7',
-  },
-  statusOverdue: {
-    backgroundColor: '#FEE2E2',
-  },
-  statusText: {
-    ...typography.caption,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  statusTextActive: {
-    color: colors.primary,
-  },
-  statusTextCompleted: {
-    color: colors.success,
-  },
-  statusTextOverdue: {
-    color: colors.error,
-  },
-  cardProgressSection: {
-    marginVertical: spacing.sm,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  progressValueText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  progressPctText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  cardProgressTrack: {
-    height: 6,
-    backgroundColor: '#F3F4F6',
-    borderRadius: radius.full,
-    overflow: 'hidden',
-  },
-  cardProgressBar: {
-    height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: radius.full,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: spacing.xs,
+    ...elevation.large,
   },
-  categoryBadge: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-  },
-  categoryText: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  milestoneText: {
-    ...typography.caption,
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  deadlineText: {
-    ...typography.caption,
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  deadlineTextOverdue: {
-    color: colors.error,
-    fontWeight: '700',
+  fabText: {
+    color: colors.surface,
+    fontSize: 32,
+    fontWeight: '400',
+    marginTop: -3,
   },
 });

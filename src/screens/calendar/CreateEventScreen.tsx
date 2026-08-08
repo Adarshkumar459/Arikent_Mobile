@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
 import { CalendarRepository } from '../../repositories/CalendarRepository';
 import { colors, spacing, typography, radius } from '../../theme';
 import { Button } from '../../components/buttons/Button';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'CreateEvent'>;
+type Props = NativeStackScreenProps<any, 'CreateEvent'>;
 
 export const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
   const [title, setTitle] = useState('');
@@ -35,8 +35,8 @@ export const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScreenHeader title="Create Event" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.header}>Create Calendar Event</Text>
         <TextInput style={styles.input} placeholder="Title *" placeholderTextColor={colors.textSecondary} value={title} onChangeText={setTitle} />
         <TextInput style={[styles.input, styles.textArea]} placeholder="Description" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
         <TextInput style={styles.input} placeholder="Start Time ISO" value={startAt} onChangeText={setStartAt} />
@@ -50,7 +50,6 @@ export const CreateEventScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { padding: spacing.lg, gap: spacing.md },
-  header: { ...typography.h2, color: colors.textPrimary },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary },
   textArea: { height: 80, textAlignVertical: 'top' },
 });

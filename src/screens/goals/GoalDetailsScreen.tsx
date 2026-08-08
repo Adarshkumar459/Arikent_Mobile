@@ -1,546 +1,313 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  SafeAreaView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
-  RefreshControl,
+  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MainStackParamList } from '../../navigation/types';
+import { GoalsStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, typography, radius, elevation } from '../../theme';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { PrimaryButton, SecondaryButton, DangerButton } from '../../components/buttons';
+import { StatusChip, CategoryChip } from '../../components/chips';
+import { ProgressBar } from '../../components/progress/ProgressBar';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalItem } from '../../services/api/goalApi';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { Button } from '../../components/buttons/Button';
-import { Loading } from '../../components/feedback/Loading';
+import { GoalOptionsSheet } from '../../components/sheets/GoalOptionsSheet';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'GoalDetails'>;
+type Props = NativeStackScreenProps<GoalsStackParamList, 'GoalDetails'>;
 
 export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { goalId } = route.params;
-  const insets = useSafeAreaInsets();
-
+  const goalId = route.params?.goalId;
   const [goal, setGoal] = useState<GoalItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [togglingMilestoneId, setTogglingMilestoneId] = useState<string | null>(null);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
 
-  const fetchGoalDetails = async (showLoading = true) => {
-    if (showLoading) setIsLoading(true);
-    setErrorMsg(null);
+  const fetchGoal = async () => {
+    if (!goalId) return;
+    setIsLoading(true);
     try {
       const data = await GoalRepository.getGoalById(goalId);
       setGoal(data);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to load goal details');
+    } catch (err) {
+      setGoal(null);
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchGoalDetails(goal === null);
+      fetchGoal();
     });
     return unsubscribe;
   }, [navigation, goalId]);
 
-  const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    fetchGoalDetails(false);
-  }, [goalId]);
-
-  const handleToggleMilestone = async (milestoneId: string, currentStatus: boolean) => {
-    setTogglingMilestoneId(milestoneId);
-    try {
-      const updatedGoal = await GoalRepository.toggleMilestone(goalId, milestoneId, !currentStatus);
-      setGoal(updatedGoal);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update milestone');
-    } finally {
-      setTogglingMilestoneId(null);
-    }
-  };
-
-  const handleDeleteConfirm = () => {
-    Alert.alert(
-      'Delete Goal',
-      'Are you sure you want to delete this goal? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              await GoalRepository.deleteGoal(goalId);
-              navigation.goBack();
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete goal');
-            } finally {
-              setIsDeleting(false);
-            }
-          },
+  const handleDelete = () => {
+    if (!goal) return;
+    Alert.alert('Delete Goal', 'Are you sure you want to delete this goal?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await GoalRepository.deleteGoal(goal.id);
+            navigation.goBack();
+          } catch (err: any) {
+            Alert.alert('Error', err.message || 'Failed to delete goal');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  if (isLoading && !isRefreshing) {
-    return <Loading message="Loading goal details..." />;
-  }
-
-  if (errorMsg || !goal) {
+  if (isLoading) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{errorMsg || 'Goal not found'}</Text>
-        <Button variant="secondary" label="Retry" onPress={() => fetchGoalDetails(true)} />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Goal Details" onBackPress={() => navigation.goBack()} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const progressPct = Math.min(
-    100,
-    Math.max(0, Math.round((goal.currentValue / goal.targetValue) * 100))
-  );
-  const isCompleted = goal.status === 'completed';
-  const todayStr = new Date().toISOString().substring(0, 10);
-  const isOverdue =
-    goal.status === 'active' &&
-    goal.deadline &&
-    goal.deadline.substring(0, 10) < todayStr;
+  if (!goal) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Goal Details" onBackPress={() => navigation.goBack()} />
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Goal not found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  // Reverse history so newest entries appear first
-  const sortedHistory = [...(goal.history || [])].reverse();
+  const rawPercent = goal.targetValue > 0 ? (goal.currentValue / goal.targetValue) * 100 : 0;
+  const clampedPercent = Math.min(Math.max(Math.round(rawPercent), 0), 100);
+  const remaining = Math.max(goal.targetValue - goal.currentValue, 0);
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom + spacing.xl, 40) },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+    <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader
+        title="Goal Details"
+        onBackPress={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity onPress={() => setIsOptionsOpen(true)}>
+            <Text style={styles.optionsIcon}>•••</Text>
+          </TouchableOpacity>
         }
-      >
-        {/* Title & Metadata Card */}
+      />
+
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <View style={styles.headerRow}>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{goal.category.toUpperCase()}</Text>
-            </View>
-            <View
-              style={[
-                styles.statusBadge,
-                isCompleted
-                  ? styles.statusCompleted
-                  : isOverdue
-                  ? styles.statusOverdue
-                  : styles.statusActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  isCompleted
-                    ? styles.statusTextCompleted
-                    : isOverdue
-                    ? styles.statusTextOverdue
-                    : styles.statusTextActive,
-                ]}
-              >
-                {isCompleted ? 'Completed' : isOverdue ? 'Overdue' : 'Active'}
+          <View style={styles.badgeRow}>
+            <StatusChip status={goal.status as any} />
+            <CategoryChip label={goal.category} selected />
+          </View>
+
+          <Text style={styles.title}>{goal.title}</Text>
+
+          {goal.description ? (
+            <Text style={styles.description}>{goal.description}</Text>
+          ) : (
+            <Text style={styles.noDesc}>No description provided.</Text>
+          )}
+
+          <View style={styles.progressBox}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>PROGRESS ({clampedPercent}%)</Text>
+              <Text style={styles.progressValues}>
+                {goal.currentValue} / {goal.targetValue} {goal.unit}
               </Text>
             </View>
+            <ProgressBar progress={clampedPercent} />
+            <Text style={styles.remainingText}>Remaining: {remaining} {goal.unit}</Text>
           </View>
 
-          <Text style={styles.goalTitle}>{goal.title}</Text>
-          {goal.description ? (
-            <Text style={styles.goalDesc}>{goal.description}</Text>
-          ) : null}
+          <View style={styles.metaDivider} />
 
-          {goal.deadline ? (
-            <Text style={[styles.deadlineText, isOverdue && styles.deadlineTextOverdue]}>
-              Deadline: {new Date(goal.deadline).toLocaleDateString()}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* Progress Banner */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressCardTitle}>Overall Progress</Text>
-            <Text style={styles.progressPctText}>{progressPct}%</Text>
-          </View>
-
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressBar,
-                { width: `${progressPct}%` },
-                isCompleted && { backgroundColor: colors.success },
-              ]}
-            />
-          </View>
-
-          <View style={styles.progressStatRow}>
-            <Text style={styles.progressStatText}>
-              Current: <Text style={styles.statHighlight}>{goal.currentValue} {goal.unit}</Text>
-            </Text>
-            <Text style={styles.progressStatText}>
-              Target: <Text style={styles.statHighlight}>{goal.targetValue} {goal.unit}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>Deadline:</Text>
+            <Text style={styles.metaValue}>
+              {goal.deadline ? new Date(goal.deadline).toLocaleDateString() : 'None'}
             </Text>
           </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionRow}>
-          <Button
-            variant="primary"
-            label="Log Progress"
-            onPress={() => navigation.navigate('UpdateGoalProgress', { goalId: goal.id })}
-            style={{ flex: 1 }}
-          />
-          <Button
-            variant="secondary"
-            label="Edit Goal"
-            onPress={() => navigation.navigate('EditGoal', { goalId: goal.id })}
-            style={{ flex: 1 }}
-          />
-        </View>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>Created:</Text>
+            <Text style={styles.metaValue}>{new Date(goal.createdAt).toLocaleDateString()}</Text>
+          </View>
 
-        {/* Milestones Section */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            Milestones ({goal.milestones.filter((m) => m.completed).length}/{goal.milestones.length})
-          </Text>
-
-          {goal.milestones.length === 0 ? (
-            <Text style={styles.emptySectionText}>No milestones set for this goal.</Text>
-          ) : (
-            <View style={styles.milestoneList}>
-              {goal.milestones.map((m) => {
-                const isToggling = togglingMilestoneId === m.id;
-                return (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={styles.milestoneRow}
-                    disabled={isToggling}
-                    onPress={() => handleToggleMilestone(m.id, m.completed)}
-                  >
-                    <View style={[styles.checkbox, m.completed && styles.checkboxChecked]}>
-                      {isToggling ? (
-                        <ActivityIndicator size="small" color={m.completed ? '#FFF' : colors.primary} />
-                      ) : m.completed ? (
-                        <Text style={styles.checkmark}>✓</Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.milestoneInfo}>
-                      <Text style={[styles.milestoneTitle, m.completed && styles.milestoneTitleDone]}>
-                        {m.title}
-                      </Text>
-                      <Text style={styles.milestoneTarget}>Target: {m.targetValue} {goal.unit}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        {/* Progress History Section */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Progress History ({sortedHistory.length})</Text>
-
-          {sortedHistory.length === 0 ? (
-            <Text style={styles.emptySectionText}>No progress history logged yet.</Text>
-          ) : (
-            <View style={styles.historyList}>
-              {sortedHistory.map((h, idx) => (
+          {/* History Timeline */}
+          {goal.history && goal.history.length > 0 ? (
+            <View style={styles.historySection}>
+              <Text style={styles.historyTitle}>PROGRESS HISTORY</Text>
+              {goal.history.slice(-3).map((h, idx) => (
                 <View key={h.id || idx} style={styles.historyItem}>
-                  <View style={styles.historyDot} />
-                  <View style={styles.historyContent}>
-                    <View style={styles.historyHeader}>
-                      <Text style={styles.historyValue}>
-                        {h.value} {goal.unit} ({h.progress}%)
-                      </Text>
-                      <Text style={styles.historyDate}>
-                        {new Date(h.recordedAt).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    {h.note ? <Text style={styles.historyNote}>{h.note}</Text> : null}
-                  </View>
+                  <Text style={styles.historyValue}>
+                    {h.value} {goal.unit} ({h.progress}%)
+                  </Text>
+                  {h.note ? <Text style={styles.historyNote}>{h.note}</Text> : null}
+                  <Text style={styles.historyDate}>{new Date(h.recordedAt).toLocaleDateString()}</Text>
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
         </View>
 
-        {/* Delete Goal Button */}
-        <View style={styles.deleteWrapper}>
-          <Button
-            variant="danger"
-            label="Delete Goal"
-            isLoading={isDeleting}
-            onPress={handleDeleteConfirm}
+        <View style={styles.actions}>
+          <PrimaryButton
+            title="Update Progress"
+            onPress={() => navigation.navigate('UpdateGoalProgress', { goalId: goal.id })}
           />
+          <SecondaryButton
+            title="Edit Goal"
+            onPress={() => navigation.navigate('EditGoal', { goalId: goal.id })}
+          />
+          <DangerButton title="Delete Goal" onPress={handleDelete} />
         </View>
       </ScrollView>
-    </View>
+
+      <GoalOptionsSheet
+        visible={isOptionsOpen}
+        onClose={() => setIsOptionsOpen(false)}
+        onEdit={() => navigation.navigate('EditGoal', { goalId: goal.id })}
+        onUpdateProgress={() => navigation.navigate('UpdateGoalProgress', { goalId: goal.id })}
+        onDelete={handleDelete}
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  errorContainer: {
+  centered: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
+    alignItems: 'center',
   },
-  errorText: {
-    ...typography.body,
-    color: colors.error,
-    marginBottom: spacing.md,
+  optionsIcon: {
+    fontSize: 20,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.xl,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
+    gap: spacing.md,
     ...elevation.small,
   },
-  headerRow: {
+  badgeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
-  categoryBadge: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-  },
-  categoryText: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-  },
-  statusActive: {
-    backgroundColor: colors.primaryLight,
-  },
-  statusCompleted: {
-    backgroundColor: '#DCFCE7',
-  },
-  statusOverdue: {
-    backgroundColor: '#FEE2E2',
-  },
-  statusText: {
-    ...typography.caption,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  statusTextActive: {
-    color: colors.primary,
-  },
-  statusTextCompleted: {
-    color: colors.success,
-  },
-  statusTextOverdue: {
-    color: colors.error,
-  },
-  goalTitle: {
-    ...typography.h2,
+  title: {
+    ...typography.display,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
-  goalDesc: {
+  description: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    lineHeight: 22,
   },
-  deadlineText: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  noDesc: {
+    ...typography.bodySmall,
+    color: colors.textDisabled,
+    fontStyle: 'italic',
   },
-  deadlineTextOverdue: {
-    color: colors.error,
-    fontWeight: '700',
-  },
-  progressCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...elevation.small,
+  progressBox: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
   },
-  progressCardTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
+  progressLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
   },
-  progressPctText: {
-    ...typography.h3,
+  progressValues: {
+    ...typography.caption,
     color: colors.primary,
     fontWeight: '700',
   },
-  progressTrack: {
-    height: 10,
-    backgroundColor: '#F3F4F6',
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
+  remainingText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    alignSelf: 'flex-end',
   },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
+  metaDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs,
   },
-  progressStatRow: {
+  metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  progressStatText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  statHighlight: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  sectionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...elevation.small,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  emptySectionText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  milestoneList: {
-    gap: spacing.sm,
-  },
-  milestoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.sm,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  milestoneInfo: {
-    flex: 1,
-  },
-  milestoneTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  milestoneTitleDone: {
-    textDecorationLine: 'line-through',
-    color: colors.textSecondary,
-  },
-  milestoneTarget: {
+  metaLabel: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  historyList: {
-    gap: spacing.md,
+  metaValue: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  historySection: {
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  historyTitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   historyItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  historyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.primary,
-    marginTop: 6,
-  },
-  historyContent: {
-    flex: 1,
     backgroundColor: colors.background,
-    borderRadius: radius.md,
     padding: spacing.sm,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderRadius: radius.sm,
+    gap: 2,
   },
   historyValue: {
     ...typography.bodySmall,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  historyDate: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
   historyNote: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
   },
-  deleteWrapper: {
-    marginTop: spacing.md,
-    marginBottom: spacing.xl,
+  historyDate: {
+    ...typography.caption,
+    color: colors.textDisabled,
+    fontSize: 10,
+  },
+  actions: {
+    gap: spacing.md,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.error,
   },
 });

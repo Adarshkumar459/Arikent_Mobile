@@ -11,14 +11,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
 import { HabitRepository } from '../../repositories/HabitRepository';
 import { HabitItem } from '../../services/api/habitApi';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { EmptyState } from '../../components/feedback/EmptyState';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Habits'>;
+type Props = NativeStackScreenProps<any, 'Habits'>;
 
 export const HabitsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();

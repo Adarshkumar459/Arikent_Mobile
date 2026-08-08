@@ -1,184 +1,201 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../../context/AuthContext';
-import { Button } from '../../components/buttons/Button';
-import { Logo } from '../../components/brand/Logo';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  SafeAreaView,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../navigation/types';
+import { AuthStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, typography, radius } from '../../theme';
+import { TextInput, PasswordInput } from '../../components/inputs';
+import { PrimaryButton } from '../../components/buttons';
+import { useAuth } from '../../context/AuthContext';
+import { ErrorState } from '../../components/states/ErrorState';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const insets = useSafeAreaInsets();
-  const { login } = useAuth();
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      setErrorMessage('Please fill in both email and password.');
+      setErrorMsg('Please fill in all fields');
       return;
     }
-
-    setLoading(true);
-    setErrorMessage(null);
+    setErrorMsg(null);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Login failed';
-      setErrorMessage(msg);
-    } finally {
-      setLoading(false);
+      setErrorMsg(err.message || 'Login failed. Please check your credentials.');
     }
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: Math.max(insets.top + spacing.lg, spacing.xl), paddingBottom: Math.max(insets.bottom + spacing.lg, spacing.xl) },
-      ]}
-    >
-      <View style={styles.header}>
-        <Logo size="xl" showText />
-        <Text style={styles.subtitle}>Welcome back! Log in to continue.</Text>
-      </View>
-
-      <View style={styles.card}>
-        {errorMessage ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.title}>Welcome Back! 👋</Text>
+            <Text style={styles.subtitle}>Login to continue</Text>
           </View>
-        ) : null}
 
-        <Text style={styles.label}>Email Address</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor={colors.textSecondary}
-        />
+          {errorMsg ? (
+            <ErrorState title="Login Failed" message={errorMsg} onRetry={() => setErrorMsg(null)} retryLabel="Dismiss" />
+          ) : null}
 
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••••"
-          secureTextEntry
-          placeholderTextColor={colors.textSecondary}
-        />
+          <View style={styles.form}>
+            <TextInput
+              label="EMAIL"
+              placeholder="example@mail.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ForgotPassword')}
-          style={styles.forgotLink}
-        >
-          <Text style={styles.forgotText}>Forgot Password?</Text>
-        </TouchableOpacity>
+            <View>
+              <PasswordInput
+                label="PASSWORD"
+                placeholder="••••••••"
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                style={styles.forgotBtn}
+                onPress={() => navigation.navigate('ForgotPassword')}
+              >
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
 
-        <Button
-          variant="primary"
-          label="Log In"
-          isLoading={loading}
-          onPress={handleLogin}
-          style={styles.loginButton}
-        />
+            <PrimaryButton
+              title="Login"
+              onPress={handleLogin}
+              isLoading={isLoading}
+              disabled={isLoading}
+            />
+          </View>
 
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.linkText}>Register</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>Or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.socialRow}>
+            <TouchableOpacity style={styles.socialBtn}>
+              <Text style={styles.socialText}>G</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialBtn}>
+              <Text style={styles.socialText}>f</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.createLink}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    padding: spacing.xl,
-    justifyContent: 'center',
-    minHeight: '100%',
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    gap: spacing.lg,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: spacing['2xl'],
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  title: {
+    ...typography.display,
+    color: colors.textPrimary,
   },
   subtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    marginTop: spacing.md,
-    textAlign: 'center',
   },
-  card: {
-    backgroundColor: colors.surface,
-    padding: spacing.xl,
-    borderRadius: radius.xl,
-    ...elevation.medium,
-  },
-  label: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  form: {
+    gap: spacing.md,
     marginTop: spacing.md,
   },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  forgotLink: {
+  forgotBtn: {
     alignSelf: 'flex-end',
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
+    marginTop: spacing.xs,
   },
   forgotText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  loginButton: {
-    marginTop: spacing.sm,
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginVertical: spacing.sm,
   },
-  errorBox: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
   },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    fontWeight: '600',
+  dividerText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
-  footerRow: {
+  socialRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: spacing.xl,
+    gap: spacing.md,
+  },
+  socialBtn: {
+    width: 60,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  socialText: {
+    ...typography.heading2,
+    color: colors.textPrimary,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.md,
   },
   footerText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
-  linkText: {
+  createLink: {
     ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '700',

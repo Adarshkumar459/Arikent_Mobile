@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
 import { DashboardRepository } from '../repositories/DashboardRepository';
 import { TaskRepository } from '../repositories/TaskRepository';
@@ -20,11 +21,11 @@ import { colors, spacing, typography, radius, elevation } from '../theme';
 import { Button } from '../components/buttons/Button';
 import { Logo } from '../components/brand/Logo';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'Home'>;
+type Props = NativeStackScreenProps<any, 'Home'>;
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export const HomeScreen: React.FC<Props> = ({ navigation }) => {
+export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
@@ -172,7 +173,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     const daysInMonth = new Date(year, month, 0).getDate();
 
     const calendarMap = new Map<string, CalendarDayData>();
-    dashboardData?.calendar.forEach((c) => calendarMap.set(c.date, c));
+    dashboardData?.calendar?.forEach((c: CalendarDayData) => calendarMap.set(c.date, c));
 
     const gridItems = [];
     // Padding days before 1st of month
@@ -225,7 +226,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return gridItems;
   };
 
-  const displayTasks: TaskItem[] =
+  const displayTasks: any[] =
     selectedDateTasks !== null
       ? selectedDateTasks
       : dashboardData?.todayTasks || [];
@@ -241,7 +242,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Top Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top + spacing.xs, spacing.md) }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + spacing.xs }]}>
         <View style={styles.headerLeft}>
           <Logo size="sm" imageSource={require('../../assets/arkient-logo.png')} />
           <View style={styles.greetingWrapper}>
@@ -412,9 +413,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </View>
             ) : null}
 
-            {/* Quick Access LifeHub Modules Bar */}
+            {/* Quick Access ARKIENT Modules Bar */}
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardTitle}>LifeHub Modules</Text>
+              <Text style={styles.summaryCardTitle}>ARKIENT Modules</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
                 <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Habits')}>
                   <Text style={styles.rateBadgeText}>⚡ Habits</Text>
@@ -588,15 +589,15 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {/* Upcoming Tasks Section */}
             <View style={styles.upcomingSection}>
               <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
-              {dashboardData.upcomingTasks.length === 0 ? (
+              {(dashboardData.upcomingTasks || []).length === 0 ? (
                 <View style={styles.emptyUpcomingCard}>
                   <Text style={styles.emptyUpcomingText}>You're all caught up — No upcoming tasks scheduled.</Text>
                 </View>
               ) : (
                 <View style={styles.upcomingList}>
-                  {dashboardData.upcomingTasks.map((task) => (
+                  {(dashboardData.upcomingTasks || []).map((task: any) => (
                     <TouchableOpacity
-                      key={task.id}
+                      key={task.id || task._id}
                       style={styles.upcomingCard}
                       onPress={() => navigation.navigate('TaskDetails', { taskId: task.id })}
                       activeOpacity={0.8}

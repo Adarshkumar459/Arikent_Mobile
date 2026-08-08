@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
 import { NoteRepository } from '../../repositories/NoteRepository';
 import { NoteItem } from '../../services/api/noteApi';
 import { colors, spacing, typography, radius } from '../../theme';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'NoteSearch'>;
+type Props = NativeStackScreenProps<any, 'NoteSearch'>;
 
 export const NoteSearchScreen: React.FC<Props> = ({ navigation }) => {
   const [q, setQ] = useState('');
@@ -40,10 +39,10 @@ export const NoteSearchScreen: React.FC<Props> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.md },
-  title: { ...typography.h2, color: colors.textPrimary },
+  title: { ...typography.heading2, color: colors.textPrimary },
   input: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary },
   list: { gap: spacing.sm },
   card: { backgroundColor: colors.surface, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
-  cardTitle: { ...typography.h3, color: colors.textPrimary },
+  cardTitle: { ...typography.heading3, color: colors.textPrimary },
   cardContent: { ...typography.bodySmall, color: colors.textSecondary, marginTop: 2 },
 });

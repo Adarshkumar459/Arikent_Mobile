@@ -4,278 +4,200 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
+  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MainStackParamList } from '../../navigation/types';
+import { GoalsStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, typography, radius } from '../../theme';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { TextInput } from '../../components/inputs';
+import { PrimaryButton } from '../../components/buttons';
+import { ProgressBar } from '../../components/progress/ProgressBar';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalItem } from '../../services/api/goalApi';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { Button } from '../../components/buttons/Button';
-import { Loading } from '../../components/feedback/Loading';
+import { ErrorState } from '../../components/states/ErrorState';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'UpdateGoalProgress'>;
+type Props = NativeStackScreenProps<GoalsStackParamList, 'UpdateGoalProgress'>;
 
 export const UpdateGoalProgressScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { goalId } = route.params;
-  const insets = useSafeAreaInsets();
-
+  const goalId = route.params?.goalId;
   const [goal, setGoal] = useState<GoalItem | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentValueText, setCurrentValueText] = useState('');
+  const [currentValueInput, setCurrentValueInput] = useState('');
   const [note, setNote] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadGoal = async () => {
-      try {
-        const data = await GoalRepository.getGoalById(goalId);
+    if (!goalId) return;
+    GoalRepository.getGoalById(goalId)
+      .then((data) => {
         setGoal(data);
-        setCurrentValueText(data.currentValue.toString());
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Failed to load goal details');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadGoal();
+        setCurrentValueInput(String(data.currentValue));
+      })
+      .catch((err) => {
+        setErrorMsg(err.message || 'Goal not found');
+      })
+      .finally(() => {
+        setIsFetching(false);
+      });
   }, [goalId]);
 
   const handleSaveProgress = async () => {
-    setErrorMsg(null);
     if (!goal) return;
-
-    const parsedVal = parseFloat(currentValueText.trim());
-    if (isNaN(parsedVal) || parsedVal < 0) {
-      setErrorMsg('Please enter a valid non-negative number for current progress');
+    const newNum = parseFloat(currentValueInput);
+    if (isNaN(newNum) || newNum < 0) {
+      setErrorMsg('Please enter a valid non-negative progress value');
       return;
     }
 
-    setIsSubmitting(true);
+    setErrorMsg(null);
+    setIsLoading(true);
     try {
-      await GoalRepository.updateGoalProgress(goalId, {
-        currentValue: parsedVal,
+      const updated = await GoalRepository.updateGoalProgress(goal.id, {
+        currentValue: newNum,
         note: note.trim() || undefined,
       });
-
-      navigation.goBack();
+      setIsLoading(false);
+      if (updated.currentValue >= updated.targetValue || updated.status === 'completed') {
+        navigation.replace('GoalCompleted', { goalId: updated.id });
+      } else {
+        navigation.goBack();
+      }
     } catch (err: any) {
+      setIsLoading(false);
       setErrorMsg(err.message || 'Failed to update progress');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
-    return <Loading message="Loading goal details..." />;
-  }
-
-  if (errorMsg && !goal) {
+  if (isFetching) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{errorMsg}</Text>
-        <Button variant="secondary" label="Back" onPress={() => navigation.goBack()} />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Update Progress" onBackPress={() => navigation.goBack()} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const parsedInput = parseFloat(currentValueText.trim());
-  const validValue = isNaN(parsedInput) || parsedInput < 0 ? 0 : parsedInput;
-  const targetVal = goal ? goal.targetValue : 1;
-  const livePct = Math.min(100, Math.max(0, Math.round((validValue / targetVal) * 100)));
+  if (!goal) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Update Progress" onBackPress={() => navigation.goBack()} />
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Goal not found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const rawPercent = goal.targetValue > 0 ? (goal.currentValue / goal.targetValue) * 100 : 0;
+  const clampedPercent = Math.min(Math.max(Math.round(rawPercent), 0), 100);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom + spacing.xl, 40) },
-        ]}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader title="Update Progress" onBackPress={() => navigation.goBack()} />
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.screenHeader}>Log Goal Progress</Text>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {errorMsg ? (
+            <ErrorState title="Error" message={errorMsg} onRetry={() => setErrorMsg(null)} retryLabel="Dismiss" />
+          ) : null}
 
-        {errorMsg ? (
-          <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          </View>
-        ) : null}
-
-        {goal ? (
-          <View style={styles.infoCard}>
+          <View style={styles.summaryBox}>
             <Text style={styles.goalTitle}>{goal.title}</Text>
-            <Text style={styles.goalTargetText}>
-              Target: <Text style={styles.highlight}>{goal.targetValue} {goal.unit}</Text>
-            </Text>
-
-            {/* Live Progress Preview */}
-            <View style={styles.previewBox}>
-              <View style={styles.previewHeader}>
-                <Text style={styles.previewLabel}>New Progress Preview</Text>
-                <Text style={styles.previewPct}>{livePct}%</Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressBar, { width: `${livePct}%` }]} />
-              </View>
+            <View style={styles.progressRow}>
+              <Text style={styles.progressText}>
+                {goal.currentValue} / {goal.targetValue} {goal.unit}
+              </Text>
+              <Text style={styles.percentText}>{clampedPercent}%</Text>
             </View>
+            <ProgressBar progress={clampedPercent} />
           </View>
-        ) : null}
 
-        {/* Current Value Input */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>New Current Value ({goal?.unit}) *</Text>
           <TextInput
-            style={styles.textInput}
-            placeholder={`e.g. ${goal?.currentValue || 0}`}
-            placeholderTextColor={colors.textSecondary}
-            value={currentValueText}
-            onChangeText={setCurrentValueText}
-            keyboardType="numeric"
+            label={`NEW CURRENT VALUE (${goal.unit})`}
+            placeholder={`Target: ${goal.targetValue}`}
+            value={currentValueInput}
+            onChangeText={setCurrentValueInput}
+            keyboardType="decimal-pad"
           />
-        </View>
 
-        {/* Optional Progress Note */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Progress Note (Optional)</Text>
           <TextInput
-            style={[styles.textInput, styles.textArea]}
-            placeholder="Add notes (e.g. Finished chapter 5, ran 5km today)"
-            placeholderTextColor={colors.textSecondary}
+            label="PROGRESS NOTE"
+            placeholder="e.g. Added monthly savings"
             value={note}
             onChangeText={setNote}
             multiline
             numberOfLines={3}
           />
-        </View>
 
-        {/* Action Button */}
-        <View style={styles.buttonWrapper}>
-          <Button
-            variant="primary"
-            label="Save Progress"
-            isLoading={isSubmitting}
-            onPress={handleSaveProgress}
-          />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.actionWrapper}>
+            <PrimaryButton
+              title="Save Progress"
+              onPress={handleSaveProgress}
+              isLoading={isLoading}
+              disabled={isLoading}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  errorContainer: {
+  centered: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  content: {
     padding: spacing.lg,
+    gap: spacing.lg,
   },
-  screenHeader: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-  },
-  errorCard: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.lg,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  infoCard: {
+  summaryBox: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
-    ...elevation.small,
+    gap: spacing.xs,
   },
   goalTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  goalTargetText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  highlight: {
-    fontWeight: '700',
+    ...typography.heading3,
     color: colors.textPrimary,
   },
-  previewBox: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  previewHeader: {
+  progressRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: spacing.xs,
   },
-  previewLabel: {
-    ...typography.caption,
+  progressText: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    fontWeight: '600',
   },
-  previewPct: {
-    ...typography.caption,
+  percentText: {
+    ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '700',
   },
-  progressTrack: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-  },
-  inputGroup: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    ...typography.label,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  textInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  buttonWrapper: {
+  actionWrapper: {
     marginTop: spacing.md,
-    marginBottom: spacing.xl,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.error,
   },
 });

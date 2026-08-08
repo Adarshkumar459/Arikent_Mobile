@@ -1,65 +1,169 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../../navigation/types';
+import { ExpensesStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, typography, radius, elevation } from '../../theme';
+import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { ProgressBar } from '../../components/progress/ProgressBar';
 import { ExpenseRepository } from '../../repositories/ExpenseRepository';
 import { ExpenseAnalyticsData } from '../../services/api/expenseApi';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { Loading } from '../../components/feedback/Loading';
-import { EmptyState } from '../../components/feedback/EmptyState';
+import { ErrorState } from '../../components/states/ErrorState';
 
-type Props = NativeStackScreenProps<MainStackParamList, 'ExpenseAnalytics'>;
+type Props = NativeStackScreenProps<ExpensesStackParamList, 'ExpenseAnalytics'>;
 
-export const ExpenseAnalyticsScreen: React.FC<Props> = () => {
+export const ExpenseAnalyticsScreen: React.FC<Props> = ({ navigation }) => {
   const [analytics, setAnalytics] = useState<ExpenseAnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fetchAnalytics = async () => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const data = await ExpenseRepository.getAnalytics();
+      setAnalytics(data);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to fetch analytics');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    ExpenseRepository.getAnalytics().then((res) => {
-      setAnalytics(res);
-      setIsLoading(false);
-    });
+    fetchAnalytics();
   }, []);
 
-  if (isLoading) return <Loading message="Loading analytics..." />;
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Expense Analytics" onBackPress={() => navigation.goBack()} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errorMsg || !analytics) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenHeader title="Expense Analytics" onBackPress={() => navigation.goBack()} />
+        <View style={styles.content}>
+          <ErrorState
+            title="Analytics Unavailable"
+            message={errorMsg || 'Failed to fetch expense breakdown'}
+            onRetry={fetchAnalytics}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Category Analytics</Text>
-      {analytics && analytics.breakdown.length > 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.totalText}>Total Expenses: ₹{analytics.totalExpense.toLocaleString()}</Text>
-          <View style={styles.list}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader title="Expense Analytics" onBackPress={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardLabel}>TOTAL MONTHLY SPENDING</Text>
+          <Text style={styles.totalAmount}>₹{analytics.totalExpense.toLocaleString('en-IN')}</Text>
+          <Text style={styles.monthText}>Month: {analytics.month}</Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>CATEGORY BREAKDOWN</Text>
+
+        {analytics.breakdown.length === 0 ? (
+          <Text style={styles.emptyText}>No spending recorded for this month.</Text>
+        ) : (
+          <View style={styles.breakdownList}>
             {analytics.breakdown.map((item) => (
-              <View key={item.category} style={styles.row}>
-                <View style={styles.rowLeft}>
-                  <Text style={styles.catName}>{item.category.toUpperCase()}</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${item.percentage}%` }]} />
-                  </View>
+              <View key={item.category} style={styles.categoryCard}>
+                <View style={styles.categoryHeader}>
+                  <Text style={styles.categoryName}>{item.category.toUpperCase()}</Text>
+                  <Text style={styles.categoryAmount}>
+                    ₹{item.total.toLocaleString('en-IN')} ({item.percentage}%)
+                  </Text>
                 </View>
-                <Text style={styles.catVal}>₹{item.total.toLocaleString()} ({item.percentage}%)</Text>
+                <ProgressBar progress={item.percentage} />
               </View>
             ))}
           </View>
-        </View>
-      ) : (
-        <EmptyState title="No Expense Data" description="No expense transactions found for this period." />
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.md },
-  title: { ...typography.h2, color: colors.textPrimary },
-  card: { backgroundColor: colors.surface, padding: spacing.lg, borderRadius: radius.lg, ...elevation.small },
-  totalText: { ...typography.h3, color: colors.textPrimary, marginBottom: spacing.md },
-  list: { gap: spacing.md },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowLeft: { flex: 1, marginRight: spacing.md },
-  catName: { ...typography.bodySmall, fontWeight: '700', color: colors.textPrimary },
-  barTrack: { height: 6, backgroundColor: colors.background, borderRadius: radius.full, marginTop: 4, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: colors.primary, borderRadius: radius.full },
-  catVal: { ...typography.bodySmall, fontWeight: '700', color: colors.textSecondary },
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  summaryCard: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.xs,
+    ...elevation.medium,
+  },
+  cardLabel: {
+    ...typography.caption,
+    color: colors.softPurple,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  totalAmount: {
+    ...typography.display,
+    color: colors.surface,
+    fontSize: 32,
+  },
+  monthText: {
+    ...typography.bodySmall,
+    color: colors.softPurple,
+  },
+  sectionTitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  breakdownList: {
+    gap: spacing.md,
+  },
+  categoryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+    ...elevation.small,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  categoryName: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  categoryAmount: {
+    ...typography.bodySmall,
+    color: colors.primary,
+    fontWeight: '700',
+  },
 });

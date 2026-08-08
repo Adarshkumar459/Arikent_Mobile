@@ -10,7 +10,8 @@ import {
 import { getButtonStyle, ButtonVariant, ButtonState, colors } from '../../theme';
 
 export interface ButtonProps {
-  label: string;
+  label?: string;
+  title?: string;
   variant?: ButtonVariant;
   state?: ButtonState;
   onPress?: () => void;
@@ -22,6 +23,7 @@ export interface ButtonProps {
 
 export const Button: React.FC<ButtonProps> = ({
   label,
+  title,
   variant = 'primary',
   state: stateProp,
   onPress,
@@ -31,6 +33,8 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const [isPressed, setIsPressed] = useState(false);
+
+  const displayLabel = label || title || '';
 
   const currentState: ButtonState =
     disabled || isLoading
@@ -58,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
           color={variant === 'primary' || variant === 'danger' ? colors.surface : colors.primary}
         />
       ) : (
-        <Text style={[styleConfig.text, textStyle]}>{label}</Text>
+        <Text style={[styleConfig.text, textStyle]}>{displayLabel}</Text>
       )}
     </Pressable>
   );

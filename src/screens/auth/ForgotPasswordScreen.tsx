@@ -1,207 +1,127 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { authApi } from '../../services/api/authApi';
-import { Button } from '../../components/buttons/Button';
-import { Logo } from '../../components/brand/Logo';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  SafeAreaView,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../navigation/types';
+import { AuthStackParamList } from '../../navigation/types/navigation.types';
+import { colors, spacing, typography } from '../../theme';
+import { TextInput } from '../../components/inputs';
+import { PrimaryButton } from '../../components/buttons';
+import { authApi } from '../../services/api/authApi';
+import { ErrorState } from '../../components/states/ErrorState';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
 export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [devToken, setDevToken] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleRequestReset = async () => {
+  const handleSendResetLink = async () => {
     if (!email.trim()) {
-      setErrorMessage('Please enter your email address.');
+      setErrorMsg('Please enter your email address');
       return;
     }
-
-    setLoading(true);
-    setErrorMessage(null);
-    setMessage(null);
-    setDevToken(null);
-
+    setErrorMsg(null);
+    setIsLoading(true);
     try {
-      const res = await authApi.forgotPassword(email);
-      if (res.data && res.data.success) {
-        setMessage('Password reset requested successfully.');
-        if (res.data.data?.devResetToken) {
-          setDevToken(res.data.data.devResetToken);
-        }
-      }
+      const res = await authApi.forgotPassword(email.trim());
+      setIsLoading(false);
+      const devToken = res.data?.data?.devResetToken;
+      navigation.navigate('VerifyOTP', { email: email.trim() });
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || err.message || 'Request failed');
-    } finally {
-      setLoading(false);
+      setIsLoading(false);
+      setErrorMsg(err.message || 'Failed to send reset link. Please check the email address.');
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Logo size="md" />
-        <Text style={styles.title}>Reset Password</Text>
-        <Text style={styles.subtitle}>Enter your account email to receive a password reset token.</Text>
-      </View>
-
-      <View style={styles.card}>
-        {errorMessage ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.title}>Forgot Password</Text>
+            <Text style={styles.subtitle}>
+              Enter your email and we'll send you a link to reset your password.
+            </Text>
           </View>
-        ) : null}
 
-        {message ? (
-          <View style={styles.successBox}>
-            <Text style={styles.successText}>{message}</Text>
-          </View>
-        ) : null}
+          {errorMsg ? (
+            <ErrorState title="Error" message={errorMsg} onRetry={() => setErrorMsg(null)} retryLabel="Dismiss" />
+          ) : null}
 
-        {devToken ? (
-          <View style={styles.devBox}>
-            <Text style={styles.devTitle}>Development Reset Token:</Text>
-            <Text style={styles.devTokenText} selectable>{devToken}</Text>
-            <Button
-              variant="secondary"
-              label="Proceed to Reset Password Screen"
-              onPress={() => navigation.navigate('ResetPassword', { devToken })}
-              style={styles.devButton}
+          <View style={styles.form}>
+            <TextInput
+              label="EMAIL"
+              placeholder="example@mail.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
+
+            <PrimaryButton
+              title="Send Reset Link"
+              onPress={handleSendResetLink}
+              isLoading={isLoading}
+              disabled={isLoading}
+            />
+
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.backText}>Back to Login</Text>
+            </TouchableOpacity>
           </View>
-        ) : null}
-
-        <Text style={styles.label}>Email Address</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholderTextColor={colors.textSecondary}
-        />
-
-        <Button
-          variant="primary"
-          label="Send Reset Request"
-          isLoading={loading}
-          onPress={handleRequestReset}
-          style={styles.button}
-        />
-
-        <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.backRow}>
-          <Text style={styles.linkText}>Back to Login</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    padding: spacing.xl,
-    justifyContent: 'center',
-    minHeight: '100%',
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    gap: spacing.lg,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
+    gap: spacing.xs,
+    marginTop: spacing.md,
   },
   title: {
-    ...typography.h2,
-    color: colors.primary,
-    marginTop: spacing.md,
+    ...typography.display,
+    color: colors.textPrimary,
   },
   subtitle: {
     ...typography.body,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
+    lineHeight: 22,
   },
-  card: {
-    backgroundColor: colors.surface,
-    padding: spacing.xl,
-    borderRadius: radius.xl,
-    ...elevation.medium,
-  },
-  label: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  form: {
+    gap: spacing.lg,
     marginTop: spacing.md,
   },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    color: colors.textPrimary,
+  backBtn: {
+    alignSelf: 'center',
+    marginTop: spacing.xs,
   },
-  button: {
-    marginTop: spacing.xl,
-  },
-  errorBox: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  successBox: {
-    backgroundColor: '#DCFCE7',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-  },
-  successText: {
-    ...typography.bodySmall,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  devBox: {
-    backgroundColor: '#EFF6FF',
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-    borderColor: colors.primary,
-    borderWidth: 1,
-  },
-  devTitle: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  devTokenText: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: colors.textPrimary,
-    marginVertical: spacing.xs,
-  },
-  devButton: {
-    marginTop: spacing.sm,
-  },
-  backRow: {
-    alignItems: 'center',
-    marginTop: spacing.xl,
-  },
-  linkText: {
+  backText: {
     ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '700',
