@@ -21,6 +21,7 @@ import { ExpenseOptionsSheet } from '../../components/sheets/ExpenseOptionsSheet
 import { ExpenseLoadingScreen } from './ExpenseLoadingScreen';
 import { ExpenseEmptyScreen } from './ExpenseEmptyScreen';
 import { ExpenseErrorScreen } from './ExpenseErrorScreen';
+import { useTabNav } from '../../context/TabContext';
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, 'ExpenseList'>;
 
@@ -36,6 +37,7 @@ const CATEGORIES: Array<{ label: string; value?: ExpenseCategory }> = [
 ];
 
 export const ExpensesScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { switchTab } = useTabNav();
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [summary, setSummary] = useState<MonthlyExpenseSummaryData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | undefined>(undefined);
@@ -128,6 +130,7 @@ export const ExpensesScreen: React.FC<Props> = ({ route, navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScreenHeader
         title="Expenses"
+        onBackPress={() => switchTab('Home')}
         rightAction={
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={() => navigation.navigate('ExpenseAnalytics')}>

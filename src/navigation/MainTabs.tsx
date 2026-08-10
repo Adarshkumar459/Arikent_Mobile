@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { HomeStack } from './stacks/HomeStack';
 import { TasksStack } from './stacks/TasksStack';
@@ -7,6 +7,7 @@ import { GoalsStack } from './stacks/GoalsStack';
 import { CalendarStack } from './stacks/CalendarStack';
 import { ProfileStack } from './stacks/ProfileStack';
 import { BottomNavigation, TabItem } from '../components/navigation/BottomNavigation';
+import { TabContext } from '../context/TabContext';
 import { colors } from '../theme';
 
 const TABS: TabItem[] = [
@@ -15,25 +16,23 @@ const TABS: TabItem[] = [
   { key: 'Expenses', label: 'Expenses', icon: '💳' },
   { key: 'Goals', label: 'Goals', icon: '🎯' },
   { key: 'Calendar', label: 'Calendar', icon: '📅' },
-  { key: 'Profile', label: 'More', icon: '•••' },
+  { key: 'Profile', label: 'Profile', icon: '👤' },
 ];
 
+type TabKey = 'Home' | 'Tasks' | 'Expenses' | 'Goals' | 'Calendar' | 'Profile';
+
 export const MainTabs: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('Home');
-  const [homeStackKey, setHomeStackKey] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<TabKey>('Home');
 
-  const handleTabPress = (tabKey: string) => {
-    if (tabKey === 'Home') {
-      // Force HomeStack to reset to its root Home Dashboard screen
-      setHomeStackKey((prev) => prev + 1);
-    }
-    setActiveTab(tabKey);
-  };
+  const switchTab = useCallback((tabKey: string) => {
+    const key = tabKey as TabKey;
+    setActiveTab(key);
+  }, []);
 
-  const renderActiveStack = () => {
+  const renderStack = () => {
     switch (activeTab) {
       case 'Home':
-        return <HomeStack key={`home-stack-${homeStackKey}`} />;
+        return <HomeStack />;
       case 'Tasks':
         return <TasksStack />;
       case 'Expenses':
@@ -45,19 +44,33 @@ export const MainTabs: React.FC = () => {
       case 'Profile':
         return <ProfileStack />;
       default:
-        return <HomeStack key={`home-stack-${homeStackKey}`} />;
+        return <HomeStack />;
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>{renderActiveStack()}</View>
-      <BottomNavigation tabs={TABS} activeTab={activeTab} onTabPress={handleTabPress} />
-    </View>
+    <TabContext.Provider value={{ activeTab, switchTab }}>
+      <View style={styles.root}>
+        <View style={styles.content}>
+          {renderStack()}
+        </View>
+
+        <BottomNavigation
+          tabs={TABS}
+          activeTab={activeTab}
+          onTabPress={switchTab}
+        />
+      </View>
+    </TabContext.Provider>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
+  },
 });

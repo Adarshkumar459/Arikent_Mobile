@@ -21,6 +21,7 @@ import { GoalOptionsSheet } from '../../components/sheets/GoalOptionsSheet';
 import { GoalLoadingScreen } from './GoalLoadingScreen';
 import { GoalEmptyScreen } from './GoalEmptyScreen';
 import { GoalErrorScreen } from './GoalErrorScreen';
+import { useTabNav } from '../../context/TabContext';
 
 type Props = NativeStackScreenProps<GoalsStackParamList, 'GoalList'>;
 
@@ -35,6 +36,7 @@ const CATEGORIES: Array<{ label: string; value?: GoalCategory }> = [
 ];
 
 export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
+  const { switchTab } = useTabNav();
   const [goals, setGoals] = useState<GoalItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<GoalCategory | undefined>(undefined);
 
@@ -100,7 +102,7 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader title="My Goals" />
+      <ScreenHeader title="My Goals" onBackPress={() => switchTab('Home')} />
 
       {/* Category Pills */}
       <View style={styles.categoryContainer}>

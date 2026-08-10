@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,14 +21,47 @@ import { TaskItem } from '../services/api/taskApi';
 import { colors, spacing, typography, radius, elevation } from '../theme';
 import { Button } from '../components/buttons/Button';
 import { Logo } from '../components/brand/Logo';
+import { useTabNav } from '../context/TabContext';
 
 type Props = NativeStackScreenProps<any, 'Home'>;
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Shimmer component for loading skeleton state
+const SkeletonBlock: React.FC<{ style?: any }> = ({ style }) => {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [animatedValue]);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.75],
+  });
+
+  return <Animated.View style={[styles.skeletonBase, { opacity }, style]} />;
+};
+
 export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { switchTab } = useTabNav();
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +89,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       });
       setDashboardData(data);
 
-      // If selectedDate is unset, default to today's date from backend
       if (!selectedDate && data.date) {
         setSelectedDate(data.date);
       }
@@ -79,7 +112,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     fetchDashboard(false, currentYearMonth);
   }, [currentYearMonth]);
 
-  // Handle month change in calendar
   const handlePrevMonth = () => {
     const [yStr, mStr] = currentYearMonth.split('-');
     let y = parseInt(yStr, 10);
@@ -110,17 +142,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     fetchDashboard(true, newMonthStr);
   };
 
-  // Handle selecting a specific date on the calendar
   const handleSelectDate = async (dateStr: string) => {
     setSelectedDate(dateStr);
     if (dashboardData && dateStr === dashboardData.date) {
-      setSelectedDateTasks(null); // Show default todayTasks
+      setSelectedDateTasks(null);
       return;
     }
 
     setIsLoadingDateTasks(true);
     try {
-      // Fetch tasks for the selected date
       const res = await TaskRepository.getTasks();
       const filtered = res.items.filter((t) => {
         if (t.dueDate) {
@@ -136,7 +166,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   };
 
-  // Toggle complete task
   const handleToggleComplete = async (task: TaskItem) => {
     setCompletingTaskId(task.id);
     try {
@@ -163,7 +192,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     return 'Good evening';
   };
 
-  // Calculate calendar days grid
+  const getFormattedTodayDate = () => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
   const renderCalendarGrid = () => {
     const [yearStr, monthStr] = currentYearMonth.split('-');
     const year = parseInt(yearStr, 10);
@@ -176,12 +213,10 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     dashboardData?.calendar?.forEach((c: CalendarDayData) => calendarMap.set(c.date, c));
 
     const gridItems = [];
-    // Padding days before 1st of month
     for (let i = 0; i < firstDayIndex; i++) {
       gridItems.push(<View key={`blank-${i}`} style={styles.calendarDayEmpty} />);
     }
 
-    // Days of month
     for (let day = 1; day <= daysInMonth; day++) {
       const formattedDay = String(day).padStart(2, '0');
       const dateStr = `${yearStr}-${monthStr}-${formattedDay}`;
@@ -199,6 +234,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             isSelected && styles.calendarDaySelected,
           ]}
           onPress={() => handleSelectDate(dateStr)}
+          activeOpacity={0.7}
         >
           <Text
             style={[
@@ -241,19 +277,21 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + spacing.xs }]}>
+      {/* TopAppBar (Stitch Arkient Spec) */}
+      <View
+        style={[
+          styles.header,
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + spacing.xs },
+        ]}
+      >
         <View style={styles.headerLeft}>
           <Logo size="sm" imageSource={require('../../assets/arkient-logo.png')} />
-          <View style={styles.greetingWrapper}>
-            <Text style={styles.greetingText}>{getGreeting()},</Text>
-            <Text style={styles.userNameText}>{user?.name || 'User'}</Text>
-          </View>
+          <Text style={styles.brandTitleText}>ARKIENT</Text>
         </View>
 
         <TouchableOpacity
           style={styles.avatarButton}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => switchTab('Profile')}
           activeOpacity={0.8}
         >
           <Text style={styles.avatarText}>
@@ -272,167 +310,248 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             refreshing={isRefreshing}
             onRefresh={onRefresh}
             colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
-        {/* Error Banner */}
+        {/* User Greeting Header */}
+        <View style={styles.greetingHeader}>
+          <Text style={styles.greetingTitle}>
+            {getGreeting()}, {user?.name || 'User'}
+          </Text>
+          <Text style={styles.greetingDate}>{getFormattedTodayDate()}</Text>
+        </View>
+
+        {/* State B: Error Banner */}
         {errorMsg ? (
           <View style={styles.errorCard}>
-            <Text style={styles.errorText}>{errorMsg}</Text>
-            <Button
-              variant="secondary"
-              label="Retry"
+            <View style={styles.errorIconBox}>
+              <Text style={styles.errorIconSymbol}>☁️</Text>
+            </View>
+            <View style={styles.errorContent}>
+              <Text style={styles.errorTitle}>Unable to load your dashboard</Text>
+              <Text style={styles.errorSubtitle}>{errorMsg}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.retryButton}
               onPress={() => fetchDashboard(true, currentYearMonth)}
-              style={styles.retryBtn}
-            />
+              activeOpacity={0.8}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
-        {/* Loading State */}
+        {/* State C: Loading Skeleton State */}
         {isLoading && !isRefreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading your productivity dashboard...</Text>
+          <View style={styles.skeletonWrapper}>
+            <SkeletonBlock style={{ height: 160, borderRadius: radius.xl, marginBottom: spacing.lg }} />
+            <SkeletonBlock style={{ height: 56, borderRadius: radius.lg, marginBottom: spacing.lg }} />
+            <SkeletonBlock style={{ height: 120, borderRadius: radius.xl, marginBottom: spacing.lg }} />
+            <SkeletonBlock style={{ height: 200, borderRadius: radius.xl }} />
           </View>
         ) : dashboardData ? (
           <>
-            {/* Today Summary Card */}
+            {/* Today's Summary Card (Hero Bento Card) */}
             <View style={styles.summaryCard}>
-              <View style={styles.summaryHeader}>
-                <View>
-                  <Text style={styles.summaryCardTitle}>Today's Overview</Text>
-                  <Text style={styles.summarySubtitle}>
-                    {dashboardData.summary.total === 0
-                      ? 'No tasks created yet'
-                      : `${dashboardData.summary.completed} of ${dashboardData.summary.total} tasks completed`}
-                  </Text>
-                </View>
-                <View style={styles.rateBadge}>
-                  <Text style={styles.rateBadgeText}>
-                    {dashboardData.summary.completionRate}% Done
-                  </Text>
+              <View style={styles.summaryDecorCircle} />
+              
+              <View style={styles.summaryLeftCol}>
+                <Text style={styles.summaryCardTitle}>Today's Summary</Text>
+
+                <View style={styles.summaryGrid}>
+                  <View style={styles.summaryStatItem}>
+                    <Text style={styles.summaryStatNum}>{dashboardData.summary.total}</Text>
+                    <Text style={styles.summaryStatLabel}>Total</Text>
+                  </View>
+                  <View style={styles.summaryStatItem}>
+                    <Text style={styles.summaryStatNum}>{dashboardData.summary.pending}</Text>
+                    <Text style={styles.summaryStatLabel}>Pending</Text>
+                  </View>
+                  <View style={styles.summaryStatItem}>
+                    <Text style={styles.summaryStatNum}>{dashboardData.summary.inProgress}</Text>
+                    <Text style={styles.summaryStatLabel}>In Progress</Text>
+                  </View>
+                  <View style={styles.summaryStatItem}>
+                    <Text style={styles.summaryStatNum}>{dashboardData.summary.completed}</Text>
+                    <Text style={styles.summaryStatLabel}>Completed</Text>
+                  </View>
                 </View>
               </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    { width: `${Math.min(dashboardData.summary.completionRate, 100)}%` },
-                  ]}
-                />
-              </View>
-
-              {/* Stat Counters */}
-              <View style={styles.statsRow}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{dashboardData.summary.total}</Text>
-                  <Text style={styles.statLabel}>Total</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Text style={[styles.statNumber, { color: colors.warning }]}>
-                    {dashboardData.summary.pending}
-                  </Text>
-                  <Text style={styles.statLabel}>Pending</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Text style={[styles.statNumber, { color: colors.info }]}>
-                    {dashboardData.summary.inProgress}
-                  </Text>
-                  <Text style={styles.statLabel}>In Progress</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Text style={[styles.statNumber, { color: colors.success }]}>
-                    {dashboardData.summary.completed}
-                  </Text>
-                  <Text style={styles.statLabel}>Completed</Text>
+              {/* Circular Completion Ring */}
+              <View style={styles.ringContainer}>
+                <View style={styles.ringOuterTrack}>
+                  <View style={styles.ringInnerCenter}>
+                    <Text style={styles.ringPercentText}>
+                      {dashboardData.summary.completionRate}%
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
 
-            {/* Goals Summary Card */}
-            {dashboardData.goals ? (
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryHeader}>
-                  <View>
-                    <Text style={styles.summaryCardTitle}>Goals Overview</Text>
-                    <Text style={styles.summarySubtitle}>
-                      {dashboardData.goals.total === 0
-                        ? 'No goals set yet'
-                        : `${dashboardData.goals.completed} of ${dashboardData.goals.total} goals completed`}
+            {/* Quick Action & Goals Overview Row */}
+            <View style={styles.quickActionRow}>
+              <TouchableOpacity
+                style={styles.primaryAddBtn}
+                onPress={() => navigation.navigate('AddTask')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.primaryAddBtnIcon}>+</Text>
+                <Text style={styles.primaryAddBtnText}>Add Task</Text>
+              </TouchableOpacity>
+
+              {dashboardData.goals ? (
+                <View style={styles.goalsMiniCard}>
+                  <View style={styles.goalsMiniLeft}>
+                    <View style={styles.flagIconBox}>
+                      <Text style={styles.flagIconSymbol}>🚩</Text>
+                    </View>
+                    <Text style={styles.goalsMiniText}>
+                      {dashboardData.goals.active || 0} Active Goals
                     </Text>
                   </View>
                   <TouchableOpacity
-                    style={styles.rateBadge}
-                    onPress={() => navigation.navigate('Goals')}
+                    onPress={() => switchTab('Goals')}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.rateBadgeText}>View Goals →</Text>
+                    <Text style={styles.viewGoalsLink}>View Goals</Text>
                   </TouchableOpacity>
                 </View>
+              ) : null}
+            </View>
 
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      { width: `${Math.min(dashboardData.goals.completionRate, 100)}%` },
-                    ]}
-                  />
-                </View>
-
-                <View style={styles.statsRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statNumber}>{dashboardData.goals.total}</Text>
-                    <Text style={styles.statLabel}>Total</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statBox}>
-                    <Text style={[styles.statNumber, { color: colors.primary }]}>
-                      {dashboardData.goals.active}
-                    </Text>
-                    <Text style={styles.statLabel}>Active</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statBox}>
-                    <Text style={[styles.statNumber, { color: colors.success }]}>
-                      {dashboardData.goals.completed}
-                    </Text>
-                    <Text style={styles.statLabel}>Completed</Text>
-                  </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statBox}>
-                    <Text style={[styles.statNumber, { color: colors.error }]}>
-                      {dashboardData.goals.overdue}
-                    </Text>
-                    <Text style={styles.statLabel}>Overdue</Text>
-                  </View>
-                </View>
-              </View>
-            ) : null}
-
-            {/* Quick Access ARKIENT Modules Bar */}
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardTitle}>ARKIENT Modules</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
-                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Habits')}>
-                  <Text style={styles.rateBadgeText}>⚡ Habits</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Calendar')}>
-                  <Text style={styles.rateBadgeText}>📅 Calendar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Reminders')}>
-                  <Text style={styles.rateBadgeText}>⏰ Reminders</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Expenses')}>
-                  <Text style={styles.rateBadgeText}>💰 Expenses</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rateBadge} onPress={() => navigation.navigate('Notes')}>
-                  <Text style={styles.rateBadgeText}>📝 Notes</Text>
+            {/* Today's Tasks Preview Section */}
+            <View style={styles.tasksSection}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>
+                  {isTodaySelected ? "Today's Tasks" : `Tasks for ${selectedDate}`}
+                </Text>
+                <TouchableOpacity onPress={() => switchTab('Tasks')} activeOpacity={0.7}>
+                  <Text style={styles.seeAllText}>See All</Text>
                 </TouchableOpacity>
               </View>
+
+              {isLoadingDateTasks ? (
+                <View style={styles.dateLoadingBox}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : displayTasks.length === 0 ? (
+                /* State A: Welcome / Empty State */
+                <View style={styles.emptyBentoCard}>
+                  <View style={styles.emptyRocketBadge}>
+                    <Text style={styles.rocketIcon}>🚀</Text>
+                  </View>
+                  <Text style={styles.emptyBentoTitle}>Welcome to ARKIENT</Text>
+                  <Text style={styles.emptyBentoSubtitle}>
+                    {dashboardData.summary.total === 0
+                      ? 'Your dashboard is empty. Start your journey by defining your objectives and actions.'
+                      : 'You are all caught up! Enjoy your day or schedule a new task.'}
+                  </Text>
+                  <View style={styles.emptyActionRow}>
+                    <TouchableOpacity
+                      style={styles.emptyAddBtn}
+                      onPress={() => navigation.navigate('AddTask')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.emptyAddBtnText}>+ Add Task</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.emptyGoalBtn}
+                      onPress={() => switchTab('Goals')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.emptyGoalBtnText}>🚩 Create Goal</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.taskList}>
+                  {displayTasks.map((item) => {
+                    const isDone = item.status === 'completed';
+                    const isCompleting = completingTaskId === item.id;
+                    const accentColor =
+                      item.priority === 'high'
+                        ? colors.error
+                        : item.priority === 'medium'
+                        ? colors.secondary
+                        : colors.tertiary;
+                    const isHighPriority = item.priority === 'high';
+
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[styles.taskItemCard, { borderLeftColor: accentColor }]}
+                        onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+                        activeOpacity={0.87}
+                      >
+                        {/* Circle checkbox */}
+                        <TouchableOpacity
+                          style={[
+                            styles.checkboxCircle,
+                            isDone && styles.checkboxCircleChecked,
+                            isCompleting && styles.checkboxCircleDisabled,
+                          ]}
+                          disabled={isCompleting}
+                          onPress={() => handleToggleComplete(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          {isCompleting ? (
+                            <ActivityIndicator size="small" color={isDone ? '#FFF' : colors.primary} />
+                          ) : isDone ? (
+                            <Text style={styles.checkmarkSymbol}>✓</Text>
+                          ) : null}
+                        </TouchableOpacity>
+
+                        {/* Task body */}
+                        <View style={styles.taskItemBody}>
+                          <Text
+                            style={[styles.taskItemTitle, isDone && styles.taskItemTitleDone]}
+                            numberOfLines={1}
+                          >
+                            {item.title}
+                          </Text>
+
+                          <View style={styles.taskMetaRow}>
+                            {/* Category chip — red tinted for high priority */}
+                            <View
+                              style={[
+                                styles.categoryChip,
+                                isHighPriority && styles.categoryChipHighPriority,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.categoryChipText,
+                                  isHighPriority && styles.categoryChipHighPriorityText,
+                                ]}
+                              >
+                                {isHighPriority ? 'High Priority' : item.category.toUpperCase()}
+                              </Text>
+                            </View>
+
+                            {item.dueDate ? (
+                              <Text
+                                style={[
+                                  styles.scheduleText,
+                                  isHighPriority && styles.scheduleTextError,
+                                ]}
+                              >
+                                ⏰{'  '}
+                                {new Date(item.dueDate).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* Interactive Calendar Section */}
@@ -443,12 +562,14 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                   <TouchableOpacity
                     style={styles.navArrowBtn}
                     onPress={handlePrevMonth}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.navArrowText}>‹</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.navArrowBtn}
                     onPress={handleNextMonth}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.navArrowText}>›</Text>
                   </TouchableOpacity>
@@ -468,130 +589,12 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               <View style={styles.calendarGrid}>{renderCalendarGrid()}</View>
             </View>
 
-            {/* Action Bar Header */}
-            <View style={styles.actionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>
-                  {isTodaySelected ? "Today's Tasks" : `Tasks for ${selectedDate}`}
-                </Text>
-                <Text style={styles.sectionSubtitle}>
-                  {displayTasks.length} {displayTasks.length === 1 ? 'task' : 'tasks'} scheduled
-                </Text>
-              </View>
-              <Button
-                variant="primary"
-                label="+ Add Task"
-                onPress={() => navigation.navigate('CreateTask')}
-                style={styles.addTaskBtn}
-              />
-            </View>
-
-            {/* Task List / Empty States */}
-            {isLoadingDateTasks ? (
-              <View style={styles.dateLoadingBox}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : displayTasks.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>
-                  {dashboardData.summary.total === 0
-                    ? 'No tasks yet'
-                    : isTodaySelected
-                    ? "You're all caught up!"
-                    : 'No tasks for this day'}
-                </Text>
-                <Text style={styles.emptySubtitle}>
-                  {dashboardData.summary.total === 0
-                    ? 'Create your first task and start organizing your day effortlessly.'
-                    : 'Enjoy your free time or add a new task for this day.'}
-                </Text>
-                <Button
-                  variant="secondary"
-                  label="+ Add Task"
-                  onPress={() => navigation.navigate('CreateTask')}
-                  style={styles.emptyActionBtn}
-                />
-              </View>
-            ) : (
-              <View style={styles.taskList}>
-                {displayTasks.map((item) => {
-                  const isDone = item.status === 'completed';
-                  const isCompleting = completingTaskId === item.id;
-
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.taskCard}
-                      onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.taskCardHeader}>
-                        <TouchableOpacity
-                          style={[
-                            styles.checkbox,
-                            isDone && styles.checkboxChecked,
-                            isCompleting && styles.checkboxDisabled,
-                          ]}
-                          disabled={isCompleting}
-                          onPress={() => handleToggleComplete(item)}
-                        >
-                          {isCompleting ? (
-                            <ActivityIndicator size="small" color={isDone ? '#FFF' : colors.primary} />
-                          ) : isDone ? (
-                            <Text style={styles.checkmark}>✓</Text>
-                          ) : null}
-                        </TouchableOpacity>
-
-                        <View style={styles.taskInfo}>
-                          <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>
-                            {item.title}
-                          </Text>
-                          {item.description ? (
-                            <Text style={styles.taskDescription} numberOfLines={1}>
-                              {item.description}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
-
-                      <View style={styles.taskCardFooter}>
-                        <View style={styles.badgeRow}>
-                          <View style={styles.categoryBadge}>
-                            <Text style={styles.categoryText}>{item.category.toUpperCase()}</Text>
-                          </View>
-
-                          <View
-                            style={[
-                              styles.priorityBadge,
-                              item.priority === 'high'
-                                ? styles.priorityHigh
-                                : item.priority === 'medium'
-                                ? styles.priorityMed
-                                : styles.priorityLow,
-                            ]}
-                          >
-                            <Text style={styles.priorityText}>{item.priority.toUpperCase()}</Text>
-                          </View>
-                        </View>
-
-                        {item.dueDate ? (
-                          <Text style={styles.dueDateText}>
-                            Due: {new Date(item.dueDate).toLocaleDateString()}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-
             {/* Upcoming Tasks Section */}
             <View style={styles.upcomingSection}>
-              <Text style={styles.sectionTitle}>Upcoming Tasks</Text>
+              <Text style={styles.upcomingSectionLabel}>Upcoming</Text>
               {(dashboardData.upcomingTasks || []).length === 0 ? (
                 <View style={styles.emptyUpcomingCard}>
-                  <Text style={styles.emptyUpcomingText}>You're all caught up — No upcoming tasks scheduled.</Text>
+                  <Text style={styles.emptyUpcomingText}>No upcoming tasks scheduled.</Text>
                 </View>
               ) : (
                 <View style={styles.upcomingList}>
@@ -600,19 +603,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                       key={task.id || task._id}
                       style={styles.upcomingCard}
                       onPress={() => navigation.navigate('TaskDetails', { taskId: task.id })}
-                      activeOpacity={0.8}
+                      activeOpacity={0.82}
                     >
+                      <View style={styles.upcomingDot} />
                       <View style={styles.upcomingLeft}>
                         <Text style={styles.upcomingTitle} numberOfLines={1}>
                           {task.title}
                         </Text>
                         <Text style={styles.upcomingCategory}>
-                          {task.category.toUpperCase()} • {task.priority.toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.upcomingDateBadge}>
-                        <Text style={styles.upcomingDateText}>
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Soon'}
+                          {task.category ? task.category.toUpperCase() : ''}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -641,153 +640,444 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.surfaceContainerHighest,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  greetingWrapper: {
-    justifyContent: 'center',
-  },
-  greetingText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  userNameText: {
-    ...typography.h3,
-    color: colors.textPrimary,
+  brandTitleText: {
+    fontFamily: typography.h1.fontFamily,
+    fontSize: 22,
     fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: -0.5,
   },
   avatarButton: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: radius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 2,
+    borderColor: colors.surfaceContainerHighest,
     alignItems: 'center',
     justifyContent: 'center',
     ...elevation.small,
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: colors.primary,
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 16,
   },
   scrollContent: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
-  loadingContainer: {
-    paddingVertical: spacing['2xl'],
+  greetingHeader: {
+    marginBottom: spacing.md,
+  },
+  greetingTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.onSurface,
+    lineHeight: 30,
+  },
+  greetingDate: {
+    fontSize: 14,
+    color: colors.outline,
+    marginTop: 2,
+  },
+  skeletonWrapper: {
+    gap: spacing.md,
+  },
+  skeletonBase: {
+    backgroundColor: colors.surfaceContainerHigh,
+  },
+  errorCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: colors.errorContainer,
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    ...elevation.small,
+  },
+  errorIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: colors.errorContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadingText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
+  errorIconSymbol: {
+    fontSize: 22,
   },
-  errorCard: {
-    backgroundColor: '#FEE2E2',
-    padding: spacing.md,
+  errorContent: {
+    flex: 1,
+  },
+  errorTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  errorSubtitle: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  retryButton: {
+    backgroundColor: colors.surfaceContainerHigh,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
     borderRadius: radius.md,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
   },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    marginBottom: spacing.xs,
-  },
-  retryBtn: {
-    marginTop: spacing.xs,
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.onSurface,
   },
   summaryCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primaryContainer,
     borderRadius: radius.xl,
     padding: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: colors.primaryContainer,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  summaryDecorCircle: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.12,
+  },
+  summaryLeftCol: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  summaryCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onPrimaryContainer,
+    opacity: 0.9,
+    marginBottom: spacing.sm,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  summaryStatItem: {
+    width: '45%',
+  },
+  summaryStatNum: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textLight,
+  },
+  summaryStatLabel: {
+    fontSize: 12,
+    color: colors.onPrimaryContainer,
+    opacity: 0.8,
+  },
+  ringContainer: {
+    width: 88,
+    height: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringOuterTrack: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 8,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderTopColor: '#FFFFFF',
+    borderRightColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringInnerCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringPercentText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textLight,
+  },
+  quickActionRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  primaryAddBtn: {
+    flex: 1,
+    height: 52,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryAddBtnIcon: {
+    fontSize: 22,
+    color: colors.textLight,
+    fontWeight: '600',
+  },
+  primaryAddBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textLight,
+  },
+  goalsMiniCard: {
+    flex: 1,
+    height: 52,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     ...elevation.small,
   },
-  summaryHeader: {
+  goalsMiniLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  flagIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagIconSymbol: {
+    fontSize: 14,
+  },
+  goalsMiniText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  viewGoalsLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
+  tasksSection: {
+    marginBottom: spacing.md,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.outline,
+  },
+  dateLoadingBox: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  emptyBentoCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderWidth: 1,
+    ...elevation.small,
+  },
+  emptyRocketBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.xl,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: spacing.md,
   },
-  summaryCardTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
+  rocketIcon: {
+    fontSize: 32,
+  },
+  emptyBentoTitle: {
+    fontSize: 18,
     fontWeight: '700',
+    color: colors.onSurface,
+    marginBottom: spacing.xs,
   },
-  summarySubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  rateBadge: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-  },
-  rateBadgeText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: '#F3F4F6',
-    borderRadius: radius.full,
-    overflow: 'hidden',
+  emptyBentoSubtitle: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
     marginBottom: spacing.lg,
+    lineHeight: 18,
   },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
+  emptyActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
   },
-  statsRow: {
+  emptyAddBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyAddBtnText: {
+    color: colors.onPrimaryContainer,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  emptyGoalBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyGoalBtnText: {
+    color: colors.primary,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  taskList: {
+    gap: spacing.sm,
+  },
+  taskItemCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: radius.md,
+    padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    borderLeftWidth: 4,
+    borderColor: colors.border,
+    borderWidth: 1,
+    ...elevation.small,
   },
-  statBox: {
+  checkboxCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.outlineVariant,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
-  statNumber: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    fontWeight: '700',
+  checkboxCircleChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
+  checkboxCircleDisabled: {
+    opacity: 0.6,
   },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: colors.border,
+  checkmarkSymbol: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  taskItemBody: {
+    flex: 1,
+  },
+  taskItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  taskItemTitleDone: {
+    textDecorationLine: 'line-through',
+    color: colors.outline,
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 4,
+  },
+  categoryChip: {
+    backgroundColor: colors.surfaceContainer,
+    paddingHorizontal: spacing.xs + 4,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+  },
+  categoryChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  categoryChipHighPriority: {
+    backgroundColor: colors.errorContainer,
+  },
+  categoryChipHighPriorityText: {
+    color: colors.onErrorContainer,
+  },
+  scheduleText: {
+    fontSize: 11,
+    color: colors.outline,
+  },
+  scheduleTextError: {
+    color: colors.error,
+    fontWeight: '600',
   },
   calendarCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceContainerLowest,
     borderRadius: radius.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderColor: colors.border,
+    borderWidth: 1,
     ...elevation.small,
   },
   calendarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   calendarTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
+    fontSize: 16,
     fontWeight: '700',
+    color: colors.onSurface,
   },
   calendarNavButtons: {
     flexDirection: 'row',
@@ -797,14 +1087,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceContainerLow,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navArrowText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.textPrimary,
+    color: colors.onSurface,
     marginTop: -2,
   },
   weekdayRow: {
@@ -815,8 +1105,8 @@ const styles = StyleSheet.create({
   weekdayText: {
     flex: 1,
     textAlign: 'center',
-    ...typography.caption,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: colors.outline,
     fontWeight: '600',
   },
   calendarGrid: {
@@ -825,11 +1115,11 @@ const styles = StyleSheet.create({
   },
   calendarDayEmpty: {
     width: '14.28%',
-    height: 40,
+    height: 38,
   },
   calendarDayCell: {
     width: '14.28%',
-    height: 40,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
@@ -841,9 +1131,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   calendarDayText: {
-    ...typography.bodySmall,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.onSurface,
   },
   calendarDayTodayText: {
     color: colors.primary,
@@ -854,9 +1144,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   taskDot: {
-    width: 5,
-    height: 5,
-    borderRadius: radius.full,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: colors.primary,
     marginTop: 2,
   },
@@ -864,199 +1154,59 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   taskDotPlaceholder: {
-    height: 7,
-  },
-  actionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-  },
-  sectionSubtitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  addTaskBtn: {
-    paddingHorizontal: spacing.md,
-  },
-  dateLoadingBox: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    ...elevation.small,
-  },
-  emptyTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  emptySubtitle: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyActionBtn: {
-    paddingHorizontal: spacing.lg,
-  },
-  taskList: {
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  taskCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    ...elevation.small,
-  },
-  taskCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.sm,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-  },
-  checkboxDisabled: {
-    opacity: 0.6,
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  taskInfo: {
-    flex: 1,
-  },
-  taskTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  taskTitleDone: {
-    textDecorationLine: 'line-through',
-    color: colors.textSecondary,
-  },
-  taskDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  taskCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  categoryBadge: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-  },
-  categoryText: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
-  priorityBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-  },
-  priorityLow: {
-    backgroundColor: '#E0F2FE',
-  },
-  priorityMed: {
-    backgroundColor: '#FEF3C7',
-  },
-  priorityHigh: {
-    backgroundColor: '#FEE2E2',
-  },
-  priorityText: {
-    ...typography.caption,
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  dueDateText: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    height: 6,
   },
   upcomingSection: {
-    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  upcomingSectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.outlineVariant,
+    marginBottom: spacing.sm,
   },
   emptyUpcomingCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceContainerLowest,
     borderRadius: radius.lg,
     padding: spacing.md,
-    marginTop: spacing.sm,
+    opacity: 0.7,
   },
   emptyUpcomingText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: colors.outline,
   },
   upcomingList: {
     gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   upcomingCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.60)',
+    borderRadius: radius.md,
     padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    ...elevation.small,
+    borderColor: colors.border,
+    borderWidth: 1,
+    opacity: 0.85,
+  },
+  upcomingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.outlineVariant,
+    marginRight: spacing.md,
   },
   upcomingLeft: {
     flex: 1,
-    marginRight: spacing.md,
   },
   upcomingTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.onSurface,
   },
   upcomingCategory: {
-    ...typography.caption,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: colors.outline,
     marginTop: 2,
   },
-  upcomingDateBadge: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-  },
-  upcomingDateText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-  },
 });
+

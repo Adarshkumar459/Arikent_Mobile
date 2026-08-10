@@ -6,12 +6,14 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { TaskRepository } from '../../repositories/TaskRepository';
 import { ReminderRepository } from '../../repositories/ReminderRepository';
+import { useTabNav } from '../../context/TabContext';
 
 type Props = NativeStackScreenProps<CalendarStackParamList, 'Calendar'>;
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const CalendarScreen: React.FC<Props> = ({ navigation }) => {
+  const { switchTab } = useTabNav();
   const [currentYearMonth, setCurrentYearMonth] = useState<string>(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -114,6 +116,7 @@ export const CalendarScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScreenHeader
         title="Calendar"
+        onBackPress={() => switchTab('Home')}
         rightAction={
           <TouchableOpacity onPress={() => navigation.navigate('Reminders')}>
             <Text style={styles.remindersIcon}>⏰</Text>

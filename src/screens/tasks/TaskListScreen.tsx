@@ -22,6 +22,7 @@ import { TaskOptionsSheet } from '../../components/sheets/TaskOptionsSheet';
 import { TaskLoadingScreen } from './TaskLoadingScreen';
 import { TaskEmptyScreen } from './TaskEmptyScreen';
 import { TaskErrorScreen } from './TaskErrorScreen';
+import { useTabNav } from '../../context/TabContext';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskList'>;
 
@@ -36,6 +37,7 @@ const CATEGORIES: Array<{ label: string; value?: TaskCategory }> = [
 ];
 
 export const TaskListScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { switchTab } = useTabNav();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory | undefined>(undefined);
@@ -145,6 +147,7 @@ export const TaskListScreen: React.FC<Props> = ({ route, navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScreenHeader
         title="My Tasks"
+        onBackPress={() => switchTab('Home')}
         rightAction={
           <TouchableOpacity onPress={() => navigation.navigate('TaskFilter')}>
             <Text style={styles.filterIcon}>⚙️</Text>
