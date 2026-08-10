@@ -35,27 +35,27 @@ export const HomeStack: React.FC = () => {
       <Stack.Screen name="DashboardLoading" component={DashboardLoadingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DashboardEmpty" component={DashboardEmptyScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DashboardError" component={DashboardErrorScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Tasks" component={TaskListScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="TaskList" component={TaskListScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Goals" component={GoalsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="GoalDetails" component={GoalDetailsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Expenses" component={ExpensesScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ExpenseDetails" component={ExpenseDetailsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Calendar" component={CalendarScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Reminders" component={RemindersScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ReminderDetails" component={ReminderDetailsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="SelectedDate" component={SelectedDateScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Tasks" component={TaskListScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="TaskList" component={TaskListScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="TaskDetails" component={TaskDetailsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="Goals" component={GoalsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="GoalDetails" component={GoalDetailsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="Expenses" component={ExpensesScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="ExpenseDetails" component={ExpenseDetailsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="Calendar" component={CalendarScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="Reminders" component={RemindersScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="ReminderDetails" component={ReminderDetailsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="SelectedDate" component={SelectedDateScreen as React.FC<any>} options={{ headerShown: false }} />
       <Stack.Screen name="Notes" component={NotesScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Habits" component={HabitsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="PersonalInformation" component={PersonalInformationScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Preferences" component={PreferencesScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Profile" component={ProfileScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="PersonalInformation" component={PersonalInformationScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="Preferences" component={PreferencesScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="About" component={AboutScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen as React.FC<any>} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 };

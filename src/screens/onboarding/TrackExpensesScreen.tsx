@@ -1,19 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius } from '../../theme';
-import { PrimaryButton } from '../../components/buttons';
+import { Button } from '../../components/buttons/Button';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'TrackExpenses'>;
 
 export const TrackExpensesScreen: React.FC<Props> = ({ navigation }) => {
-  const handleSkip = () => {
-    navigation.navigate('ReadyToStart');
+  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
+
+  const handleSkip = async () => {
+    (navigation as any).navigate('Login');
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
@@ -22,24 +24,40 @@ export const TrackExpensesScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.content}>
         <View style={styles.illustrationBox}>
-          <View style={styles.cardBox1} />
-          <View style={styles.cardBox2} />
-          <View style={styles.avatarHead} />
-          <View style={styles.avatarBody} />
+          <View style={styles.pieChart}>
+            <View style={styles.pieSlice1} />
+            <View style={styles.pieSlice2} />
+          </View>
+
+          <View style={styles.wallet}>
+            <View style={styles.cashBill} />
+            <View style={styles.walletStrap} />
+          </View>
+
+          <View style={styles.currencyBadge}>
+            <Text style={styles.currencyText}>₹</Text>
+          </View>
         </View>
 
-        <Text style={styles.title}>Track Expenses</Text>
-        <Text style={styles.subtitle}>Know where your money goes.</Text>
+        <Text style={styles.mainHeading}>Track Your Finances</Text>
+        <Text style={styles.description}>
+          Manage expenses, create budgets and build better money habits.
+        </Text>
 
         <View style={styles.indicatorRow}>
           <View style={styles.inactiveDot} />
+          <View style={styles.inactiveDot} />
+          <View style={styles.inactiveDot} />
           <View style={styles.activeDot} />
-          <View style={styles.inactiveDot} />
-          <View style={styles.inactiveDot} />
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton title="Next" onPress={() => navigation.navigate('AchieveGoals')} />
+          <Button
+            variant="primary"
+            label="Next →"
+            onPress={() => navigation.navigate('ReadyToStart' as any)}
+            style={styles.nextBtn}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -53,8 +71,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
   },
   skipBtn: {
     padding: spacing.xs,
@@ -62,6 +80,7 @@ const styles = StyleSheet.create({
   skipText: {
     ...typography.body,
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -69,70 +88,106 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
+  mainHeading: {
+    ...typography.heading1,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+  },
+  description: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
   illustrationBox: {
-    width: 240,
-    height: 180,
-    borderRadius: radius.xl,
+    width: 260,
+    height: 200,
+    borderRadius: radius['2xl'],
     backgroundColor: colors.softPurple,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
     position: 'relative',
   },
-  cardBox1: {
+  pieChart: {
     position: 'absolute',
-    left: 45,
-    top: 60,
-    width: 44,
-    height: 28,
-    borderRadius: radius.xs,
+    top: 25,
+    right: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F59E0B',
+    overflow: 'hidden',
+    elevation: 3,
+  },
+  pieSlice1: {
+    width: 30,
+    height: 60,
+    backgroundColor: colors.primary,
+  },
+  pieSlice2: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 30,
+    height: 30,
     backgroundColor: '#22C55E',
   },
-  cardBox2: {
-    position: 'absolute',
-    left: 55,
-    top: 50,
-    width: 44,
-    height: 28,
+  wallet: {
+    width: 120,
+    height: 80,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+  },
+  cashBill: {
+    width: 80,
+    height: 40,
     borderRadius: radius.xs,
-    backgroundColor: '#EAB308',
+    backgroundColor: '#22C55E',
+    marginTop: -35,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
-  avatarHead: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FBCFE8',
-    borderWidth: 4,
-    borderColor: '#1E293B',
-    marginBottom: 4,
+  walletStrap: {
+    width: 24,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    position: 'absolute',
+    right: 15,
   },
-  avatarBody: {
-    width: 72,
-    height: 60,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: '#3B82F6',
+  currencyBadge: {
+    position: 'absolute',
+    bottom: 25,
+    right: 35,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
   },
-  title: {
-    ...typography.display,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
+  currencyText: {
+    color: colors.surface,
+    fontWeight: '800',
+    fontSize: 18,
   },
   indicatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: spacing.xl,
   },
   activeDot: {
-    width: 20,
+    width: 24,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary,
@@ -145,5 +200,9 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
+  },
+  nextBtn: {
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
   },
 });

@@ -1,19 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius } from '../../theme';
-import { PrimaryButton } from '../../components/buttons';
+import { Button } from '../../components/buttons/Button';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'AchieveGoals'>;
 
 export const AchieveGoalsScreen: React.FC<Props> = ({ navigation }) => {
-  const handleSkip = () => {
-    navigation.navigate('ReadyToStart');
+  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
+
+  const handleSkip = async () => {
+    (navigation as any).navigate('Login');
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
@@ -22,15 +24,28 @@ export const AchieveGoalsScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.content}>
         <View style={styles.illustrationBox}>
-          <View style={styles.targetRing}>
-            <View style={styles.targetInner} />
+          <View style={styles.bullseyeOuter}>
+            <View style={styles.bullseyeMiddle}>
+              <View style={styles.bullseyeInner} />
+            </View>
+            <View style={styles.arrowLine} />
           </View>
-          <View style={styles.avatarHead} />
-          <View style={styles.avatarBody} />
+
+          <View style={styles.barChartRow}>
+            <View style={[styles.bar, { height: 30 }]} />
+            <View style={[styles.bar, { height: 45 }]} />
+            <View style={[styles.bar, { height: 65, backgroundColor: '#22C55E' }]} />
+          </View>
+
+          <View style={styles.starBadge}>
+            <Text style={styles.starEmoji}>⭐</Text>
+          </View>
         </View>
 
-        <Text style={styles.title}>Achieve Goals</Text>
-        <Text style={styles.subtitle}>Set goals and track your progress.</Text>
+        <Text style={styles.mainHeading}>Achieve Your Goals</Text>
+        <Text style={styles.description}>
+          Set goals, track progress and celebrate every milestone.
+        </Text>
 
         <View style={styles.indicatorRow}>
           <View style={styles.inactiveDot} />
@@ -40,7 +55,12 @@ export const AchieveGoalsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <View style={styles.actions}>
-          <PrimaryButton title="Next" onPress={() => navigation.navigate('ReadyToStart')} />
+          <Button
+            variant="primary"
+            label="Next →"
+            onPress={() => navigation.navigate('TrackExpenses' as any)}
+            style={styles.nextBtn}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -54,8 +74,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
   },
   skipBtn: {
     padding: spacing.xs,
@@ -63,6 +83,7 @@ const styles = StyleSheet.create({
   skipText: {
     ...typography.body,
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -70,70 +91,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
+  mainHeading: {
+    ...typography.heading1,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+  },
+  description: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
   illustrationBox: {
-    width: 240,
-    height: 180,
-    borderRadius: radius.xl,
+    width: 260,
+    height: 200,
+    borderRadius: radius['2xl'],
     backgroundColor: colors.softPurple,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
     position: 'relative',
   },
-  targetRing: {
-    position: 'absolute',
-    right: 40,
-    top: 45,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  bullseyeOuter: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     borderWidth: 6,
-    borderColor: '#22C55E',
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    left: 40,
+    top: 35,
+  },
+  bullseyeMiddle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 6,
+    borderColor: '#818CF8',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  targetInner: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  bullseyeInner: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+  },
+  arrowLine: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    width: 40,
+    height: 4,
     backgroundColor: '#22C55E',
+    transform: [{ rotate: '-45deg' }],
   },
-  avatarHead: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FBCFE8',
-    borderWidth: 4,
-    borderColor: '#1E293B',
-    marginBottom: 4,
+  barChartRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    position: 'absolute',
+    right: 40,
+    bottom: 35,
   },
-  avatarBody: {
-    width: 72,
-    height: 60,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: colors.secondary,
+  bar: {
+    width: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 4,
   },
-  title: {
-    ...typography.display,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
+  starBadge: {
+    position: 'absolute',
+    bottom: 25,
+    right: 25,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
   },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
+  starEmoji: {
+    fontSize: 18,
   },
   indicatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: spacing.xl,
   },
   activeDot: {
-    width: 20,
+    width: 24,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary,
@@ -146,5 +199,9 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
+  },
+  nextBtn: {
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
   },
 });
