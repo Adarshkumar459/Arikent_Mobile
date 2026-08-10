@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E8E4F5',
-    ...elevation.high,
+    ...elevation.large,
     shadowColor: '#6C4CE8',
     shadowOpacity: 0.18,
     shadowRadius: 24,
