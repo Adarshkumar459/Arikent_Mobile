@@ -5,6 +5,7 @@ import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { Logo } from '../../components/brand/Logo';
+import { OnboardingRepository } from '../../repositories/OnboardingRepository';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'About'>;
 
@@ -50,8 +51,14 @@ export const AboutScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.linkRow} onPress={() => handleLink('Open Source Licenses')}>
-            <Text style={styles.linkLabel}>Open Source Licenses</Text>
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={async () => {
+              await OnboardingRepository.setOnboardingCompleted(false);
+              (navigation as any).navigate('OrganizeTasks');
+            }}
+          >
+            <Text style={styles.linkLabel}>Replay Onboarding Flow</Text>
             <Text style={styles.linkArrow}>›</Text>
           </TouchableOpacity>
         </View>

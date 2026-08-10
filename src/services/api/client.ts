@@ -19,6 +19,60 @@ const processQueue = (error: unknown | null, token: string | null = null) => {
   failedQueue = [];
 };
 
+export interface FormattedApiError {
+  status?: number;
+  message: string;
+  fieldErrors?: Array<{ field: string; message: string }>;
+}
+
+export const formatApiError = (error: any): FormattedApiError => {
+  if (!error.response) {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return { message: 'Request timed out. Please check your connection and try again.' };
+    }
+    return { message: 'No internet connection. Please check your network and try again.' };
+  }
+
+  const status = error.response.status;
+  const data = error.response.data || {};
+  let message = data.message || 'An unexpected error occurred. Please try again.';
+  let fieldErrors: Array<{ field: string; message: string }> | undefined = undefined;
+
+  if (Array.isArray(data.errors)) {
+    if (data.errors.length > 0 && typeof data.errors[0] === 'object' && data.errors[0].field) {
+      fieldErrors = data.errors;
+    } else if (data.errors.length > 0 && typeof data.errors[0] === 'string') {
+      message = data.errors.join('. ');
+    }
+  }
+
+  switch (status) {
+    case 400:
+      if (!data.message) message = 'Validation Error. Please check your inputs.';
+      break;
+    case 401:
+      if (!data.message) message = 'Invalid email or password.';
+      break;
+    case 403:
+      message = 'Access forbidden. You do not have permission to perform this action.';
+      break;
+    case 409:
+      if (!data.message) message = 'An account with this email address already exists.';
+      break;
+    case 429:
+      message = 'Too many requests. Please wait a moment and try again.';
+      break;
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      message = 'Server is currently unavailable. Please try again later.';
+      break;
+  }
+
+  return { status, message, fieldErrors };
+};
+
 class ApiClient {
   private instance: AxiosInstance;
   private onSessionExpiredCallback?: () => void;
@@ -52,7 +106,7 @@ class ApiClient {
       (error) => Promise.reject(error)
     );
 
-    // Response Interceptor: Auto 401 token refresh queue
+    // Response Interceptor: Auto 401 token refresh queue & Session Expiry
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => response,
       async (error) => {
