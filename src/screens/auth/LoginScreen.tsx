@@ -9,239 +9,220 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { TextInput, PasswordInput } from '../../components/inputs';
-import { Button } from '../../components/buttons/Button';
+import { PrimaryButton } from '../../components/buttons';
 import { useAuth } from '../../context/AuthContext';
-import { OnboardingRepository } from '../../repositories/OnboardingRepository';
-import { AuthAlertModal, AlertVariant, ActionConfig } from '../../components/modals/AuthAlertModal';
+import { CustomAlert, AlertButton } from '../../components/alerts/CustomAlert';
+import { parseErrorMessage } from '../../utils/errorUtils';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
-  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
-  const { login, isLoading } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Level 1 Field Validation Errors
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [showValidationBox, setShowValidationBox] = useState(false);
-  const [inlineApiError, setInlineApiError] = useState<string | null>(null);
-
-  // Level 2 Application/Server Error Modal
-  const [modalConfig, setModalConfig] = useState<{
+  // Custom CSS Styled Alert Modal state
+  const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
-    variant: AlertVariant;
     title: string;
     message: string;
-    primaryAction?: ActionConfig;
-    secondaryAction?: ActionConfig;
+    type?: 'error' | 'success' | 'warning' | 'info';
+    buttons?: AlertButton[];
   }>({
     visible: false,
-    variant: 'error',
     title: '',
     message: '',
   });
 
-  const validateFields = () => {
-    let valid = true;
-    setEmailError(null);
-    setPasswordError(null);
-    setShowValidationBox(false);
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'error' | 'success' | 'warning' | 'info' = 'error',
+    buttons?: AlertButton[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      buttons,
+    });
+  };
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      setEmailError('Email is required.');
-      valid = false;
-    } else if (!emailRegex.test(email.trim())) {
-      setEmailError('Please enter a valid email address.');
-      valid = false;
-    }
-
-    if (!password.trim()) {
-      setPasswordError('Password is required.');
-      valid = false;
-    }
-
-    if (!valid) {
-      setShowValidationBox(true);
-    }
-
-    return valid;
+  const hideAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
   };
 
   const handleLogin = async () => {
-    setInlineApiError(null);
-    if (!validateFields()) return;
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
+    if (!trimmedEmail || !trimmedPassword) {
+      showAlert('Missing Credentials', 'Please enter both your email address and password.');
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      // Mark onboarding as completed so logged-in user goes straight to Dashboard
-      await OnboardingRepository.setOnboardingCompleted(true);
-      await login(email.trim(), password);
+      await login(trimmedEmail, trimmedPassword);
+      setIsLoading(false);
+      // On success, AuthContext sets user -> RootNavigator opens Main Dashboard!
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || '';
+      setIsLoading(false);
+      const apiError = parseErrorMessage(err);
+      const isNotFound =
+        apiError.toLowerCase().includes('not exist') ||
+        apiError.toLowerCase().includes('no account') ||
+        apiError.toLowerCase().includes('user not found');
 
-      if (msg.toLowerCase().includes('password')) {
-        setInlineApiError('Invalid email or password. Please try again.');
-        setModalConfig({
-          visible: true,
-          variant: 'error',
-          title: 'Incorrect Password',
-          message: 'The password you entered is incorrect. Please try again.',
-          primaryAction: { label: 'Try Again', onPress: () => setModalConfig((prev) => ({ ...prev, visible: false })) },
-          secondaryAction: { label: 'Forgot Password?', onPress: () => navigation.navigate('ForgotPassword') },
-        });
-      } else if (msg.toLowerCase().includes('found') || msg.toLowerCase().includes('exist')) {
-        setInlineApiError('Invalid email or password. Please try again.');
-        setModalConfig({
-          visible: true,
-          variant: 'error',
-          title: 'Account Not Found',
-          message: "We couldn't find an account with this email address.",
-          primaryAction: { label: 'Try Again', onPress: () => setModalConfig((prev) => ({ ...prev, visible: false })) },
-          secondaryAction: { label: 'Create Account', onPress: () => navigation.navigate('Register') },
-        });
-      } else if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('connection')) {
-        setModalConfig({
-          visible: true,
-          variant: 'error',
-          title: 'No Internet Connection',
-          message: 'Please check your internet connection and try again.',
-          primaryAction: { label: 'Retry', onPress: () => handleLogin() },
-        });
+      if (isNotFound) {
+        showAlert(
+          'Account Not Found',
+          'Account does not exist with this email. Would you like to create an account?',
+          'warning',
+          [
+            {
+              text: 'Create Account',
+              onPress: () => navigation.navigate('Register'),
+            },
+            {
+              text: 'Try Again',
+              variant: 'secondary',
+            },
+          ]
+        );
       } else {
-        setInlineApiError(msg || 'Authentication failed. Please try again.');
-        setModalConfig({
-          visible: true,
-          variant: 'error',
-          title: 'Something Went Wrong',
-          message: "We couldn't complete your request right now. Please try again later.",
-          primaryAction: { label: 'Try Again', onPress: () => setModalConfig((prev) => ({ ...prev, visible: false })) },
-        });
+        showAlert(
+          'Login Failed',
+          apiError.toLowerCase().includes('password')
+            ? 'Incorrect password. Please verify your password and try again.'
+            : apiError
+        );
       }
     }
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.topBar}>
-            {navigation.canGoBack() && (
-              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                <Text style={styles.backArrow}>‹</Text>
-              </TouchableOpacity>
-            )}
-            <View style={styles.brandBadge}>
-              <Text style={styles.brandBadgeText}>ARKIENT</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F1FF" />
+
+      {/* Atmospheric Background Lighting */}
+      <View style={styles.ambientGlowTop} />
+      <View style={styles.ambientGlowBottom} />
+
+      {/* Custom Styled CSS Popup Alert Modal */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        buttons={alertConfig.buttons}
+        onClose={hideAlert}
+      />
+
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Main Card */}
+          <View style={styles.card}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.brandTitle}>ARKIENT</Text>
+              <Text style={styles.brandSubtitle}>Everything that matters, together.</Text>
             </View>
-          </View>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back! 👋</Text>
-            <Text style={styles.subtitle}>Log in to continue to your life management workspace</Text>
-          </View>
-
-          {inlineApiError && (
-            <View style={styles.apiErrorPill}>
-              <View style={styles.apiErrorIconCircle}>
-                <Text style={styles.apiErrorIcon}>!</Text>
+            {/* Form Fields */}
+            <View style={styles.form}>
+              {/* Email Input */}
+              <View style={styles.inputWrapper}>
+                <View style={styles.labelBadge}>
+                  <Text style={styles.labelText}>Email</Text>
+                </View>
+                <View style={styles.inputFieldBox}>
+                  <Text style={styles.inputIcon}>✉️</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="name@example.com"
+                    placeholderTextColor="#A19DAE"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
               </View>
-              <Text style={styles.apiErrorText}>{inlineApiError}</Text>
-            </View>
-          )}
 
-          <View style={styles.formCard}>
-            <TextInput
-              label="EMAIL ADDRESS"
-              placeholder="adarsh@example.com"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (emailError) setEmailError(null);
-                if (showValidationBox) setShowValidationBox(false);
-              }}
-              error={emailError || undefined}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+              {/* Password Input */}
+              <View style={styles.inputWrapper}>
+                <View style={styles.labelBadge}>
+                  <Text style={styles.labelText}>Password</Text>
+                </View>
+                <View style={styles.inputFieldBox}>
+                  <Text style={styles.inputIcon}>🔒</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••"
+                    placeholderTextColor="#A19DAE"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!isPasswordVisible}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                  >
+                    <Text style={styles.eyeIcon}>{isPasswordVisible ? '👁️' : '🙈'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-            <View>
-              <PasswordInput
-                label="PASSWORD"
-                placeholder="••••••••"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) setPasswordError(null);
-                  if (showValidationBox) setShowValidationBox(false);
-                }}
-                error={passwordError || undefined}
-              />
-              <TouchableOpacity style={styles.forgotBtn} onPress={() => navigation.navigate('ForgotPassword')}>
+              {/* Forgot Password */}
+              <TouchableOpacity
+                style={styles.forgotBtn}
+                onPress={() => navigation.navigate('ForgotPassword')}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.forgotText}>Forgot Password?</Text>
               </TouchableOpacity>
+
+              {/* Primary Login Button */}
+              <PrimaryButton
+                title="Login →"
+                onPress={handleLogin}
+                isLoading={isLoading}
+                disabled={isLoading}
+                style={styles.submitBtn}
+              />
             </View>
 
-            {showValidationBox && (
-              <View style={styles.validationBox}>
-                <Text style={styles.validationBoxTitle}>Please fix the errors below</Text>
-                {emailError && <Text style={styles.validationItem}>• {emailError}</Text>}
-                {passwordError && <Text style={styles.validationItem}>• {passwordError}</Text>}
+            {/* Footer Divider & Create Account Link */}
+            <View style={styles.footer}>
+              <View style={styles.dividerLine} />
+              <View style={styles.footerRow}>
+                <Text style={styles.footerText}>Don't have an account? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')} activeOpacity={0.7}>
+                  <Text style={styles.createLink}>Create Account</Text>
+                </TouchableOpacity>
               </View>
-            )}
-
-            <Button
-              variant="primary"
-              label="Log In →"
-              onPress={handleLogin}
-              isLoading={isLoading}
-              disabled={isLoading}
-              style={styles.loginBtn}
-            />
-          </View>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialBtn}>
-              <Text style={[styles.socialText, { color: '#EA4335' }]}>G</Text>
-              <Text style={styles.socialLabel}>Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.socialBtn}>
-              <Text style={[styles.socialText, { color: '#000000' }]}></Text>
-              <Text style={styles.socialLabel}>Apple</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.createLink}>Create Account</Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <AuthAlertModal
-        visible={modalConfig.visible}
-        variant={modalConfig.variant}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        primaryAction={modalConfig.primaryAction}
-        secondaryAction={modalConfig.secondaryAction}
-        onDismiss={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
-      />
     </SafeAreaView>
   );
 };
@@ -249,189 +230,150 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F1FF',
+  },
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(108, 76, 232, 0.12)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(203, 190, 255, 0.18)',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    gap: spacing.lg,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 40,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.surface,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    ...elevation.small,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  backArrow: {
-    fontSize: 26,
-    color: colors.textPrimary,
-    marginTop: -3,
-  },
-  brandBadge: {
-    backgroundColor: colors.softPurple,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-  },
-  brandBadgeText: {
-    ...typography.caption,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 1.2,
-  },
-  header: {
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  apiErrorPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    ...elevation.small,
-  },
-  apiErrorIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  apiErrorIcon: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  apiErrorText: {
-    ...typography.bodySmall,
-    color: '#DC2626',
-    fontWeight: '600',
-    flex: 1,
-  },
-  formCard: {
-    backgroundColor: colors.surface,
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
     borderRadius: radius['2xl'],
     padding: spacing.xl,
-    gap: spacing.md,
-    borderColor: '#EEF2FF',
     borderWidth: 1,
+    borderColor: '#E8E4F5',
     ...elevation.medium,
+    shadowColor: '#6C4CE8',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  brandTitle: {
+    ...typography.display,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#532DCF',
+    letterSpacing: -0.5,
+    marginBottom: spacing.xs,
+  },
+  brandSubtitle: {
+    ...typography.bodyLarge,
+    fontSize: 14,
+    color: '#484555',
+    textAlign: 'center',
+  },
+  form: {
+    gap: spacing.lg,
+  },
+  inputWrapper: {
+    position: 'relative',
+  },
+  labelBadge: {
+    position: 'absolute',
+    top: -9,
+    left: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 6,
+    zIndex: 10,
+  },
+  labelText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#532DCF',
+  },
+  inputFieldBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    borderWidth: 1,
+    borderColor: '#C9C4D7',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#FFFFFF',
+  },
+  inputIcon: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    ...typography.body,
+    fontSize: 15,
+    color: '#1B1B1D',
+  },
+  eyeBtn: {
+    padding: spacing.xs,
+  },
+  eyeIcon: {
+    fontSize: 16,
   },
   forgotBtn: {
     alignSelf: 'flex-end',
-    marginTop: spacing.xs,
+    marginTop: -spacing.xs,
   },
   forgotText: {
-    ...typography.bodySmall,
-    color: colors.primary,
+    fontSize: 12,
     fontWeight: '700',
+    color: '#532DCF',
   },
-  validationBox: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: 4,
-  },
-  validationBoxTitle: {
-    ...typography.bodySmall,
-    color: '#DC2626',
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  validationItem: {
-    ...typography.caption,
-    color: '#DC2626',
-  },
-  loginBtn: {
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
+  submitBtn: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: '#6C4CE8',
     marginTop: spacing.xs,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginVertical: spacing.xs,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E2E8F0',
-  },
-  dividerText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  socialBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    height: 50,
-    borderRadius: radius.xl,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    ...elevation.small,
-  },
-  socialText: {
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  socialLabel: {
-    ...typography.bodySmall,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   footer: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: '#E4E2E4',
+    marginBottom: spacing.lg,
+  },
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: spacing.xs,
+    alignItems: 'center',
   },
   footerText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+    fontSize: 14,
+    color: '#484555',
   },
   createLink: {
-    ...typography.bodySmall,
-    color: colors.primary,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#532DCF',
   },
 });

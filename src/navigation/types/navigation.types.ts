@@ -1,16 +1,18 @@
 export type AuthStackParamList = {
   Splash: undefined;
   Welcome: undefined;
+  Onboarding: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  VerifyOTP: { email?: string } | undefined;
+  VerifyOTP: { email?: string; resetToken?: string; otpCode?: string } | undefined;
   CreateNewPassword: { resetToken?: string } | undefined;
   PasswordUpdated: undefined;
 };
 
 export type OnboardingStackParamList = {
   OrganizeTasks: undefined;
+  StayOnTopTasks: undefined;
   TrackExpenses: undefined;
   AchieveGoals: undefined;
   ReadyToStart: undefined;

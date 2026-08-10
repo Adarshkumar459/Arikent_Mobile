@@ -1,64 +1,65 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
-import { colors, spacing, typography, radius } from '../../theme';
-import { Button } from '../../components/buttons/Button';
-import { BRAND } from '../../constants/brand';
+import { colors, spacing, typography, radius, elevation } from '../../theme';
+import { PrimaryButton } from '../../components/buttons';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
 export const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
-  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
-
   return (
-    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F1FF" />
 
-      <View style={styles.content}>
-        <Text style={styles.brandTitle}>{BRAND.appName}</Text>
-        <Text style={styles.mainHeading}>Manage Everything.{'\n'}Live Better.</Text>
-        <Text style={styles.description}>
-          Your all-in-one companion for tasks, goals, habits, finances, notes and more.
-        </Text>
+      {/* Atmospheric Background Lighting */}
+      <View style={styles.ambientGlowTop} />
+      <View style={styles.ambientGlowBottom} />
 
-        <View style={styles.illustrationBox}>
-          <View style={[styles.floatingIcon, { top: 20, left: 20 }]}>
-            <Text style={styles.iconEmoji}>✓</Text>
-          </View>
-          <View style={[styles.floatingIcon, { top: 20, right: 20 }]}>
-            <Text style={styles.iconEmoji}>📊</Text>
-          </View>
-          <View style={[styles.floatingIcon, { bottom: 25, left: 15 }]}>
-            <Text style={styles.iconEmoji}>🎯</Text>
-          </View>
-          <View style={[styles.floatingIcon, { bottom: 25, right: 15 }]}>
-            <Text style={styles.iconEmoji}>📅</Text>
-          </View>
-
-          <View style={styles.avatarHead} />
-          <View style={styles.avatarBody} />
-          <View style={styles.laptop} />
+      <View style={styles.container}>
+        {/* Top Spacer / Brand Tag */}
+        <View style={styles.tagWrapper}>
+          <Text style={styles.tagText}>✨ Welcome to Arkient</Text>
         </View>
 
-        <View style={styles.indicatorRow}>
-          <View style={styles.activeDot} />
-          <View style={styles.inactiveDot} />
-          <View style={styles.inactiveDot} />
-          <View style={styles.inactiveDot} />
+        {/* Center Card */}
+        <View style={styles.card}>
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoIcon}>💎</Text>
+          </View>
+          <Text style={styles.brandTitle}>ARKIENT</Text>
+          <Text style={styles.brandSubtitle}>
+            Organize tasks, track expenses, achieve goals, and streamline your entire daily workflow.
+          </Text>
+
+          {/* Action Buttons */}
+          <View style={styles.actionContainer}>
+            <PrimaryButton
+              title="Get Started →"
+              onPress={() => navigation.navigate('Onboarding')}
+              style={styles.getStartedBtn}
+            />
+
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loginBtnText}>I already have an account</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.actions}>
-          <Button
-            variant="primary"
-            label="Next →"
-            onPress={() => navigation.navigate('OrganizeTasks' as any)}
-            style={styles.nextBtn}
-          />
+        {/* Footer info */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Secure • Fast • Unified</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -68,121 +69,117 @@ export const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F4F1FF',
   },
-  header: {
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(108, 76, 232, 0.12)',
   },
-  skipBtn: {
-    padding: spacing.xs,
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(203, 190, 255, 0.18)',
   },
-  skipText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  content: {
+  container: {
     flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tagWrapper: {
+    backgroundColor: '#E6DEFF',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    marginTop: spacing.sm,
+  },
+  tagText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#532DCF',
+  },
+  card: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius['2xl'],
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E4F5',
+    ...elevation.medium,
+    shadowColor: '#6C4CE8',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  logoCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#6C4CE8',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+  },
+  logoIcon: {
+    fontSize: 32,
   },
   brandTitle: {
-    fontSize: 28,
+    ...typography.display,
+    fontSize: 32,
     fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 1.5,
+    color: '#532DCF',
+    letterSpacing: -0.5,
     marginBottom: spacing.xs,
   },
-  mainHeading: {
-    ...typography.heading1,
-    color: colors.textPrimary,
+  brandSubtitle: {
+    ...typography.bodyLarge,
+    fontSize: 14,
+    color: '#484555',
     textAlign: 'center',
-    fontWeight: '800',
-    marginBottom: spacing.xs,
-  },
-  description: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
-  },
-  illustrationBox: {
-    width: 260,
-    height: 180,
-    borderRadius: radius['2xl'],
-    backgroundColor: colors.softPurple,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    position: 'relative',
-  },
-  floatingIcon: {
-    position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  iconEmoji: {
-    fontSize: 16,
-  },
-  avatarHead: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FBCFE8',
-    borderWidth: 3,
-    borderColor: '#1E293B',
-    marginBottom: 2,
-  },
-  avatarBody: {
-    width: 64,
-    height: 50,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    backgroundColor: colors.primary,
-  },
-  laptop: {
-    width: 80,
-    height: 12,
-    backgroundColor: '#94A3B8',
-    borderRadius: 4,
-    marginTop: -8,
-  },
-  indicatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    lineHeight: 20,
     marginBottom: spacing.xl,
   },
-  activeDot: {
-    width: 24,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-  inactiveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.border,
-  },
-  actions: {
+  actionContainer: {
     width: '100%',
+    gap: spacing.md,
   },
-  nextBtn: {
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
+  getStartedBtn: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: '#6C4CE8',
+  },
+  loginBtn: {
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CABEFF',
+    backgroundColor: '#F0EFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#532DCF',
+  },
+  footer: {
+    marginBottom: spacing.sm,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#797586',
+    fontWeight: '600',
   },
 });

@@ -24,6 +24,9 @@ import { ReminderDetailsScreen } from '../../screens/reminders/ReminderDetailsSc
 import { SelectedDateScreen } from '../../screens/calendar/SelectedDateScreen';
 import { NotesScreen } from '../../screens/notes/NotesScreen';
 import { HabitsScreen } from '../../screens/habits/HabitsScreen';
+import { CreateHabitScreen } from '../../screens/habits/CreateHabitScreen';
+import { EditHabitScreen } from '../../screens/habits/EditHabitScreen';
+import { HabitDetailsScreen } from '../../screens/habits/HabitDetailsScreen';
 import { colors } from '../../theme';
 
 const Stack = createNativeStackNavigator<any>();
@@ -48,6 +51,9 @@ export const HomeStack: React.FC = () => {
       <Stack.Screen name="SelectedDate" component={SelectedDateScreen as React.FC<any>} options={{ headerShown: false }} />
       <Stack.Screen name="Notes" component={NotesScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Habits" component={HabitsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CreateHabit" component={CreateHabitScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditHabit" component={EditHabitScreen as React.FC<any>} options={{ headerShown: false }} />
+      <Stack.Screen name="HabitDetails" component={HabitDetailsScreen as React.FC<any>} options={{ headerShown: false }} />
       <Stack.Screen name="Profile" component={ProfileScreen as React.FC<any>} options={{ headerShown: false }} />
       <Stack.Screen name="PersonalInformation" component={PersonalInformationScreen as React.FC<any>} options={{ headerShown: false }} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen as React.FC<any>} options={{ headerShown: false }} />

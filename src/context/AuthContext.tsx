@@ -66,34 +66,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const response = await authApi.login({ email, password });
-      if (response.data && response.data.success) {
-        const { user: userData, accessToken, refreshToken } = response.data.data;
-        await AuthRepository.saveTokens(accessToken, refreshToken);
-        setUser(userData);
-      } else {
-        throw new Error(response.data.message || 'Login failed');
-      }
-    } finally {
-      setIsLoading(false);
+    const response = await authApi.login({ email, password });
+    if (response.data && response.data.success) {
+      const { user: userData, accessToken, refreshToken } = response.data.data;
+      await AuthRepository.saveTokens(accessToken, refreshToken);
+      setUser(userData);
+    } else {
+      throw new Error(response.data.message || 'Login failed');
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    setIsLoading(true);
-    try {
-      const response = await authApi.register({ email, password, name });
-      if (response.data && response.data.success) {
-        const { user: userData, accessToken, refreshToken } = response.data.data;
-        await AuthRepository.saveTokens(accessToken, refreshToken);
-        setUser(userData);
-      } else {
-        throw new Error(response.data.message || 'Registration failed');
-      }
-    } finally {
-      setIsLoading(false);
+    const response = await authApi.register({ email, password, name });
+    if (response.data && response.data.success) {
+      const { user: userData, accessToken, refreshToken } = response.data.data;
+      await AuthRepository.saveTokens(accessToken, refreshToken);
+      setUser(userData);
+    } else {
+      throw new Error(response.data.message || 'Registration failed');
     }
   };
 

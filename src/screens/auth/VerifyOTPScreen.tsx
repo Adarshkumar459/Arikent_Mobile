@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,132 +13,182 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
-import { colors, spacing, typography, radius } from '../../theme';
+import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { PrimaryButton } from '../../components/buttons';
-import { AuthAlertModal, AlertVariant, ActionConfig } from '../../components/modals/AuthAlertModal';
+import { ErrorState } from '../../components/states/ErrorState';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'VerifyOTP'>;
 
 export const VerifyOTPScreen: React.FC<Props> = ({ route, navigation }) => {
-  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
-  const email = route.params?.email || 'adarsh@example.com';
-  const [otp, setOtp] = useState(['1', '2', '3', '4', '5', '6']);
+  const email = route.params?.email || 'user@example.com';
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [timer, setTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef<Array<RNTextInput | null>>([]);
 
-  const [modalConfig, setModalConfig] = useState<{
-    visible: boolean;
-    variant: AlertVariant;
-    title: string;
-    message: string;
-    primaryAction?: ActionConfig;
-    secondaryAction?: ActionConfig;
-  }>({
-    visible: false,
-    variant: 'error',
-    title: '',
-    message: '',
-  });
+  const initialOtpCode = route.params?.otpCode;
+
+  // Auto-fill OTP on initial render
+  useEffect(() => {
+    if (initialOtpCode && initialOtpCode.length === 6) {
+      setOtp(initialOtpCode.split(''));
+    }
+  }, [initialOtpCode]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const handleDigitChange = (text: string, index: number) => {
+    const cleanText = text.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = text;
+    newOtp[index] = cleanText;
     setOtp(newOtp);
-    if (text && index < 5) {
+
+    if (cleanText && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
+  };
+
+  const handleKeyPress = (e: any, index: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleResend = () => {
+    if (!canResend) return;
+    const newRandomOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setOtp(newRandomOtp.split(''));
+    setTimer(30);
+    setCanResend(false);
+    setErrorMsg(null);
   };
 
   const handleVerify = async () => {
     const fullOtp = otp.join('');
     if (fullOtp.length < 6) {
-      setModalConfig({
-        visible: true,
-        variant: 'warning',
-        title: 'Complete OTP Code',
-        message: 'Please enter all 6 digits of the OTP sent to your email.',
-        primaryAction: { label: 'OK', onPress: () => setModalConfig((prev) => ({ ...prev, visible: false })) },
-      });
+      setErrorMsg('Please enter all 6 digits of the code');
       return;
     }
-
+    setErrorMsg(null);
     setIsLoading(true);
+
+    const resetToken = route.params?.resetToken || fullOtp;
     setTimeout(() => {
       setIsLoading(false);
-      navigation.navigate('CreateNewPassword', { resetToken: 'dev-token' });
+      navigation.navigate('CreateNewPassword', { resetToken });
     }, 600);
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-              <Text style={styles.backArrow}>‹</Text>
-            </TouchableOpacity>
-          </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F1FF" />
 
-          <View style={styles.illustrationWrapper}>
-            <View style={styles.envelopeBox}>
-              <Text style={styles.envelopeEmoji}>✉️</Text>
-              <View style={styles.checkBadge}>
-                <Text style={styles.checkBadgeIcon}>✓</Text>
-              </View>
+      {/* Ambient background lighting */}
+      <View style={styles.ambientGlowTop} />
+      <View style={styles.ambientGlowBottom} />
+
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Main Card */}
+          <View style={styles.card}>
+            {/* Mail Icon Graphic */}
+            <View style={styles.iconCircle}>
+              <Text style={styles.mailIcon}>✉️</Text>
             </View>
-          </View>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>Check Your Email</Text>
-            <Text style={styles.subtitle}>
-              We've sent a password reset link to <Text style={styles.emailHighlight}>{email}</Text>. The link will expire in 15 minutes.
-            </Text>
-          </View>
+            {/* Title & Subtitle */}
+            <View style={styles.header}>
+              <Text style={styles.title}>Verify your email</Text>
+              <Text style={styles.subtitle}>
+                We've sent a 6-digit verification code to{'\n'}
+                <Text style={styles.emailHighlight}>{email}</Text>
+              </Text>
+            </View>
 
-          <View style={styles.otpRow}>
-            {otp.map((digit, idx) => (
-              <RNTextInput
-                key={idx}
-                ref={(ref) => (inputRefs.current[idx] = ref)}
-                style={styles.otpBox}
-                value={digit}
-                onChangeText={(text) => handleDigitChange(text, idx)}
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
+            {/* Error Message */}
+            {errorMsg ? (
+              <ErrorState
+                title="Verification Error"
+                message={errorMsg}
+                onRetry={() => setErrorMsg(null)}
+                retryLabel="Dismiss"
               />
-            ))}
-          </View>
+            ) : null}
 
-          <TouchableOpacity style={styles.resendRow}>
-            <Text style={styles.resendText}>Didn't receive code? </Text>
-            <Text style={styles.resendLink}>Resend (00:30)</Text>
-          </TouchableOpacity>
+            {/* Auto-filled Badge */}
+            {otp.join('').length === 6 ? (
+              <View style={styles.autoFilledBadge}>
+                <Text style={styles.autoFilledText}>✨ Code Auto-Filled: {otp.join('')}</Text>
+              </View>
+            ) : null}
 
-          <View style={styles.actions}>
-            <PrimaryButton
-              title="Verify & Reset Password"
-              onPress={handleVerify}
-              isLoading={isLoading}
-              disabled={isLoading}
-            />
+            {/* 6-Digit OTP Inputs */}
+            <View style={styles.otpGrid}>
+              {otp.map((digit, idx) => (
+                <RNTextInput
+                  key={idx}
+                  ref={(ref) => (inputRefs.current[idx] = ref)}
+                  style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
+                  value={digit}
+                  onChangeText={(text) => handleDigitChange(text, idx)}
+                  onKeyPress={(e) => handleKeyPress(e, idx)}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  selectTextOnFocus
+                />
+              ))}
+            </View>
 
-            <TouchableOpacity style={styles.backToLoginBtn} onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.backToLoginText}>Back to Log In</Text>
-            </TouchableOpacity>
+            {/* Resend Code Section */}
+            <View style={styles.resendRow}>
+              <Text style={styles.resendText}>Didn't receive the code? </Text>
+              <TouchableOpacity onPress={handleResend} disabled={!canResend} activeOpacity={0.7}>
+                <Text style={[styles.resendLink, !canResend && styles.resendDisabled]}>
+                  {canResend ? 'Resend Code' : `Resend Code (00:${timer < 10 ? `0${timer}` : timer})`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actions}>
+              <PrimaryButton
+                title="Verify Code →"
+                onPress={handleVerify}
+                isLoading={isLoading}
+                disabled={isLoading}
+                style={styles.submitBtn}
+              />
+
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={() => navigation.navigate('Login')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.backText}>← Back to Log In</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <AuthAlertModal
-        visible={modalConfig.visible}
-        variant={modalConfig.variant}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        primaryAction={modalConfig.primaryAction}
-        secondaryAction={modalConfig.secondaryAction}
-        onDismiss={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
-      />
     </SafeAreaView>
   );
 };
@@ -146,127 +196,155 @@ export const VerifyOTPScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F4F1FF',
+  },
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(108, 76, 232, 0.12)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(203, 190, 255, 0.18)',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  topBar: {
+  card: {
     width: '100%',
-    height: 36,
-    justifyContent: 'center',
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius['2xl'],
+    padding: spacing.xl,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E4F5',
+    ...elevation.medium,
+    shadowColor: '#6C4CE8',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  backArrow: {
-    fontSize: 28,
-    color: colors.textPrimary,
-    marginTop: -4,
-  },
-  illustrationWrapper: {
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  envelopeBox: {
-    width: 110,
-    height: 90,
-    borderRadius: radius.xl,
-    backgroundColor: colors.softPurple,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E6DEFF',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    marginBottom: spacing.lg,
   },
-  envelopeEmoji: {
-    fontSize: 44,
-  },
-  checkBadge: {
-    position: 'absolute',
-    bottom: -8,
-    right: -8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#16A34A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: colors.surface,
-  },
-  checkBadgeIcon: {
-    color: colors.surface,
-    fontWeight: '800',
-    fontSize: 14,
+  mailIcon: {
+    fontSize: 34,
   },
   header: {
     alignItems: 'center',
-    gap: spacing.xs,
+    marginBottom: spacing.xl,
   },
   title: {
-    ...typography.display,
-    color: colors.textPrimary,
-    fontWeight: '800',
+    ...typography.heading1,
+    fontSize: 24,
+    color: '#1B1B1D',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+    ...typography.bodyLarge,
+    fontSize: 14,
+    color: '#484555',
     textAlign: 'center',
     lineHeight: 20,
   },
   emailHighlight: {
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#1B1B1D',
   },
-  otpRow: {
+  otpGrid: {
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   otpBox: {
     width: 44,
     height: 52,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.primary,
-    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#C9C4D7',
     textAlign: 'center',
-    ...typography.heading2,
-    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1B1B1D',
+  },
+  otpBoxFilled: {
+    borderColor: '#532DCF',
+    backgroundColor: '#F0EFFF',
   },
   resendRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: spacing.xl,
   },
   resendText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: '#484555',
   },
   resendLink: {
-    ...typography.bodySmall,
-    color: colors.primary,
+    fontSize: 13,
     fontWeight: '700',
+    color: '#532DCF',
+  },
+  resendDisabled: {
+    color: '#797586',
+    fontWeight: '400',
   },
   actions: {
     width: '100%',
     gap: spacing.md,
   },
-  backToLoginBtn: {
-    alignSelf: 'center',
+  submitBtn: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: '#6C4CE8',
   },
-  backToLoginText: {
-    ...typography.bodySmall,
-    color: colors.primary,
+  backBtn: {
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+  },
+  backText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#484555',
+  },
+  autoFilledBadge: {
+    backgroundColor: '#F0EFFF',
+    borderColor: '#CABEFF',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: spacing.md,
+  },
+  autoFilledText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#532DCF',
   },
 });

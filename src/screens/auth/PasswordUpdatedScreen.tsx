@@ -1,33 +1,37 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
-import { colors, spacing, typography, radius } from '../../theme';
+import { spacing, typography, radius, elevation } from '../../theme';
 import { PrimaryButton } from '../../components/buttons';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PasswordUpdated'>;
 
 export const PasswordUpdatedScreen: React.FC<Props> = ({ navigation }) => {
-  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
-
   return (
-    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
-      <View style={styles.content}>
-        <View style={styles.shieldWrapper}>
-          <View style={styles.confetti1} />
-          <View style={styles.confetti2} />
-          <View style={styles.confetti3} />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F1FF" />
 
-          <View style={styles.shieldBox}>
-            <Text style={styles.checkIcon}>✓</Text>
+      {/* Ambient background lighting */}
+      <View style={styles.ambientGlowTop} />
+      <View style={styles.ambientGlowBottom} />
+
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <View style={styles.iconCircle}>
+            <Text style={styles.checkIcon}>🎉</Text>
           </View>
-        </View>
 
-        <Text style={styles.title}>Password Reset Successful!</Text>
-        <Text style={styles.subtitle}>You can now log in with your new password.</Text>
+          <Text style={styles.title}>Password Updated!</Text>
+          <Text style={styles.subtitle}>
+            Your password has been changed successfully. You can now log in using your new credentials.
+          </Text>
 
-        <View style={styles.actions}>
-          <PrimaryButton title="Go to Log In" onPress={() => navigation.navigate('Login')} />
+          <PrimaryButton
+            title="Back to Log In →"
+            onPress={() => navigation.navigate('Login')}
+            style={styles.submitBtn}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -37,83 +41,78 @@ export const PasswordUpdatedScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F4F1FF',
   },
-  content: {
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(108, 76, 232, 0.12)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(203, 190, 255, 0.18)',
+  },
+  container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
-  shieldWrapper: {
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    position: 'relative',
-  },
-  confetti1: {
-    position: 'absolute',
-    top: 10,
-    left: 15,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#F59E0B',
-  },
-  confetti2: {
-    position: 'absolute',
-    top: 20,
-    right: 10,
-    width: 12,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-    transform: [{ rotate: '45deg' }],
-  },
-  confetti3: {
-    position: 'absolute',
-    bottom: 15,
-    left: 20,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#22C55E',
-  },
-  shieldBox: {
-    width: 90,
-    height: 90,
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
     borderRadius: radius['2xl'],
-    backgroundColor: colors.primary,
+    padding: spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E4F5',
+    ...elevation.medium,
+    shadowColor: '#6C4CE8',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E6DEFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    marginBottom: spacing.lg,
   },
   checkIcon: {
-    fontSize: 44,
-    color: colors.surface,
-    fontWeight: '800',
+    fontSize: 34,
   },
   title: {
-    ...typography.display,
-    color: colors.textPrimary,
+    ...typography.heading1,
+    fontSize: 24,
+    color: '#1B1B1D',
     textAlign: 'center',
-    fontWeight: '800',
     marginBottom: spacing.xs,
   },
   subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
+    ...typography.bodyLarge,
+    fontSize: 14,
+    color: '#484555',
     textAlign: 'center',
-    marginBottom: spacing['2xl'],
-    paddingHorizontal: spacing.md,
+    lineHeight: 20,
+    marginBottom: spacing.xl,
   },
-  actions: {
+  submitBtn: {
     width: '100%',
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: '#6C4CE8',
   },
 });

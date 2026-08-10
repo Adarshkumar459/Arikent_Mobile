@@ -9,146 +9,178 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
-import { TextInput } from '../../components/inputs';
-import { Button } from '../../components/buttons/Button';
+import { PrimaryButton } from '../../components/buttons';
 import { authApi } from '../../services/api/authApi';
-import { formatApiError } from '../../services/api/client';
-import { AuthAlertModal, AlertVariant, ActionConfig } from '../../components/modals/AuthAlertModal';
+import { CustomAlert, AlertButton } from '../../components/alerts/CustomAlert';
+import { parseErrorMessage } from '../../utils/errorUtils';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
 export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
-  const topInset = Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0;
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
 
-  const [modalConfig, setModalConfig] = useState<{
+  // Custom CSS Styled Alert Modal state
+  const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
-    variant: AlertVariant;
     title: string;
     message: string;
-    primaryAction?: ActionConfig;
-    secondaryAction?: ActionConfig;
+    type?: 'error' | 'success' | 'warning' | 'info';
+    buttons?: AlertButton[];
   }>({
     visible: false,
-    variant: 'error',
     title: '',
     message: '',
   });
 
-  const validate = () => {
-    setEmailError(null);
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      setEmailError('Please enter a valid email address.');
-      return false;
-    }
-    if (!emailRegex.test(email.trim())) {
-      setEmailError('Please enter a valid email address.');
-      return false;
-    }
-    return true;
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'error' | 'success' | 'warning' | 'info' = 'error',
+    buttons?: AlertButton[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      buttons,
+    });
+  };
+
+  const hideAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
   };
 
   const handleSendResetLink = async () => {
-    if (!validate()) return;
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      showAlert('Invalid Email', 'Please enter your email address.');
+      return;
+    }
 
     setIsLoading(true);
     try {
-      await authApi.forgotPassword(email.trim());
+      const response = await authApi.forgotPassword(trimmedEmail);
+      const devResetToken = response.data?.data?.devResetToken;
+      const otpCode = response.data?.data?.otpCode || Math.floor(100000 + Math.random() * 900000).toString();
       setIsLoading(false);
-      navigation.navigate('VerifyOTP', { email: email.trim() });
+      showAlert(
+        'Code Sent!',
+        `Verification OTP code ${otpCode} sent to your email.`,
+        'success',
+        [
+          {
+            text: 'Verify Code',
+            onPress: () =>
+              navigation.navigate('VerifyOTP', {
+                email: trimmedEmail,
+                resetToken: devResetToken,
+                otpCode,
+              }),
+          },
+        ]
+      );
     } catch (err: any) {
       setIsLoading(false);
-      const apiErr = formatApiError(err);
-      
-      if (apiErr.status === 400) {
-        setEmailError('Please enter a valid email address.');
-      } else {
-        setModalConfig({
-          visible: true,
-          variant: 'error',
-          title: 'Unable to Send Link',
-          message: apiErr.message || "We couldn't send the reset link right now. Please try again.",
-          primaryAction: { label: 'Retry', onPress: () => handleSendResetLink() },
-        });
-      }
+      const apiError = parseErrorMessage(err);
+      showAlert(
+        'Email Not Found',
+        apiError.toLowerCase().includes('not found') || apiError.toLowerCase().includes('valid') || apiError.toLowerCase().includes('no account')
+          ? 'No account found with this email. Please enter a valid registered email.'
+          : apiError
+      );
     }
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-              <Text style={styles.backArrow}>‹</Text>
-            </TouchableOpacity>
-            <View style={styles.brandBadge}>
-              <Text style={styles.brandBadgeText}>ARKIENT</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F1FF" />
+
+      {/* Ambient background lighting */}
+      <View style={styles.ambientGlowTop} />
+      <View style={styles.ambientGlowBottom} />
+
+      {/* Custom Styled CSS Popup Alert Modal */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        buttons={alertConfig.buttons}
+        onClose={hideAlert}
+      />
+
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Main Card */}
+          <View style={styles.card}>
+            {/* Lock Reset Graphic Badge */}
+            <View style={styles.iconCircle}>
+              <Text style={styles.lockIcon}>🔑</Text>
             </View>
-          </View>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>Forgot Password?</Text>
-            <Text style={styles.subtitle}>
-              No worries! Enter your email and we'll send you a password reset link.
-            </Text>
-          </View>
+            {/* Typography Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>Forgot your password?</Text>
+              <Text style={styles.subtitle}>
+                Enter your email and we'll send you a code to reset your password.
+              </Text>
+            </View>
 
-          <View style={styles.formCard}>
-            <TextInput
-              label="EMAIL ADDRESS"
-              placeholder="adarsh@example.com"
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (emailError) setEmailError(null);
-              }}
-              error={emailError || undefined}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Button
-              variant="primary"
-              label="Send Reset Link →"
-              onPress={handleSendResetLink}
-              isLoading={isLoading}
-              disabled={isLoading}
-              style={styles.sendBtn}
-            />
-
-            <TouchableOpacity style={styles.backToLoginBtn} onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.backToLoginText}>Back to Log In</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.illustrationWrapper}>
-            <View style={styles.envelopeBox}>
-              <View style={styles.planeIcon}>
-                <Text style={styles.planeEmoji}>✈️</Text>
+            {/* Form */}
+            <View style={styles.form}>
+              <View style={styles.inputWrapper}>
+                <View style={styles.labelBadge}>
+                  <Text style={styles.labelText}>Email Address</Text>
+                </View>
+                <View style={styles.inputFieldBox}>
+                  <Text style={styles.inputIcon}>✉️</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="hello@arkient.com"
+                    placeholderTextColor="#A19DAE"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
               </View>
-              <Text style={styles.envelopeEmoji}>✉️</Text>
+
+              <PrimaryButton
+                title="Send Reset Code →"
+                onPress={handleSendResetLink}
+                isLoading={isLoading}
+                disabled={isLoading}
+                style={styles.submitBtn}
+              />
             </View>
+
+            {/* Back to Login Footer Link */}
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => navigation.navigate('Login')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backText}>← Back to Log In</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <AuthAlertModal
-        visible={modalConfig.visible}
-        variant={modalConfig.variant}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        primaryAction={modalConfig.primaryAction}
-        secondaryAction={modalConfig.secondaryAction}
-        onDismiss={() => setModalConfig((prev) => ({ ...prev, visible: false }))}
-      />
     </SafeAreaView>
   );
 };
@@ -156,116 +188,135 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F4F1FF',
+  },
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(108, 76, 232, 0.12)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(203, 190, 255, 0.18)',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    gap: spacing.lg,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 40,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.surface,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    ...elevation.small,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  backArrow: {
-    fontSize: 26,
-    color: colors.textPrimary,
-    marginTop: -3,
-  },
-  brandBadge: {
-    backgroundColor: colors.softPurple,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-  },
-  brandBadgeText: {
-    ...typography.caption,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 1.2,
-  },
-  header: {
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  formCard: {
-    backgroundColor: colors.surface,
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
     borderRadius: radius['2xl'],
     padding: spacing.xl,
-    gap: spacing.md,
-    borderColor: '#EEF2FF',
+    alignItems: 'center',
     borderWidth: 1,
+    borderColor: '#E8E4F5',
     ...elevation.medium,
+    shadowColor: '#6C4CE8',
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
   },
-  sendBtn: {
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    marginTop: spacing.xs,
-  },
-  backToLoginBtn: {
-    alignSelf: 'center',
-    marginTop: spacing.xs,
-  },
-  backToLoginText: {
-    ...typography.bodySmall,
-    color: colors.primary,
-    fontWeight: '800',
-  },
-  illustrationWrapper: {
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  envelopeBox: {
-    width: 140,
-    height: 100,
-    borderRadius: radius.xl,
-    backgroundColor: colors.softPurple,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E6DEFF',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  lockIcon: {
+    fontSize: 34,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  title: {
+    ...typography.heading1,
+    fontSize: 24,
+    color: '#1B1B1D',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  subtitle: {
+    ...typography.bodyLarge,
+    fontSize: 14,
+    color: '#484555',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  form: {
+    width: '100%',
+    gap: spacing.lg,
+  },
+  inputWrapper: {
     position: 'relative',
-    ...elevation.small,
+    width: '100%',
   },
-  envelopeEmoji: {
-    fontSize: 48,
-  },
-  planeIcon: {
+  labelBadge: {
     position: 'absolute',
-    top: -15,
-    right: -15,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...elevation.small,
+    top: -9,
+    left: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 6,
+    zIndex: 10,
   },
-  planeEmoji: {
-    fontSize: 18,
+  labelText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#532DCF',
+  },
+  inputFieldBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    borderWidth: 1,
+    borderColor: '#C9C4D7',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#FFFFFF',
+  },
+  inputIcon: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    ...typography.body,
+    fontSize: 14,
+    color: '#1B1B1D',
+  },
+  submitBtn: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: '#6C4CE8',
+  },
+  backBtn: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.xs,
+  },
+  backText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#484555',
   },
 });

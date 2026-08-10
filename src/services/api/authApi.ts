@@ -23,6 +23,7 @@ export interface TokenRefreshResponse {
 
 export interface ForgotPasswordResponse {
   devResetToken?: string;
+  otpCode?: string;
 }
 
 export const authApi = {
