@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
-import { colors, spacing, typography, radius } from '../../theme';
+import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { PrimaryButton, SecondaryButton } from '../../components/buttons';
 import { BRAND } from '../../constants/brand';
 
@@ -11,24 +11,72 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 export const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      {/* Ambient background lighting */}
+      <View style={styles.ambientGlowTop} />
+      <View style={styles.ambientGlowBottom} />
+
+      {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('Login')}>
+        <TouchableOpacity
+          style={styles.skipBtn}
+          onPress={() => navigation.navigate('Login')}
+          activeOpacity={0.7}
+        >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <View style={styles.container}>
+        {/* 3D Elevated Brand Card */}
         <View style={styles.illustrationBox}>
-          <View style={styles.avatarHead} />
-          <View style={styles.avatarBody} />
+          <View style={styles.brandCard}>
+            <View style={styles.logoBadgeContainer}>
+              <Image
+                source={require('../../../assets/arkient-logo.png')}
+                style={styles.logoImg}
+                resizeMode="contain"
+              />
+            </View>
+
+            <View style={styles.pillRow}>
+              <View style={styles.featurePill}>
+                <Text style={styles.pillEmoji}>📋</Text>
+                <Text style={styles.pillText}>Tasks</Text>
+              </View>
+              <View style={styles.featurePill}>
+                <Text style={styles.pillEmoji}>💰</Text>
+                <Text style={styles.pillText}>Expenses</Text>
+              </View>
+              <View style={styles.featurePill}>
+                <Text style={styles.pillEmoji}>🎯</Text>
+                <Text style={styles.pillText}>Goals</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        <Text style={styles.title}>Welcome to {BRAND.appName}</Text>
-        <Text style={styles.subtitle}>Organize your everyday life in one simple place.</Text>
+        {/* Title & Subtitle */}
+        <View style={styles.textSection}>
+          <Text style={styles.title}>Welcome to {BRAND.appName}</Text>
+          <Text style={styles.subtitle}>
+            Organize your everyday life in one simple place.
+          </Text>
+        </View>
 
+        {/* Action Buttons */}
         <View style={styles.actions}>
-          <PrimaryButton title="Get Started" onPress={() => navigation.navigate('Register')} />
-          <SecondaryButton title="Login" onPress={() => navigation.navigate('Login')} />
+          <PrimaryButton
+            title="Get Started"
+            onPress={() => navigation.navigate('Onboarding')}
+            style={styles.getStartedBtn}
+          />
+          <SecondaryButton
+            title="Login"
+            onPress={() => navigation.navigate('Login')}
+            style={styles.loginBtn}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -40,63 +88,135 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(108, 76, 232, 0.08)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: -60,
+    left: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(96, 62, 212, 0.06)',
+  },
   header: {
     alignItems: 'flex-end',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: Platform.OS === 'android' ? spacing.md : spacing.xs,
   },
   skipBtn: {
-    padding: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(228, 226, 228, 0.4)',
   },
   skipText: {
-    ...typography.body,
-    color: colors.textSecondary,
+    ...typography.caption,
+    fontWeight: '600',
+    color: '#484555',
   },
-  content: {
+  container: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  illustrationBox: {
+    width: '100%',
+    maxHeight: 320,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
   },
-  illustrationBox: {
-    width: 240,
-    height: 180,
-    borderRadius: radius.xl,
-    backgroundColor: colors.softPurple,
-    justifyContent: 'center',
+  brandCard: {
+    width: '88%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius['2xl'],
+    padding: spacing.xl,
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    borderWidth: 1,
+    borderColor: '#E4E2E4',
+    ...elevation.medium,
+    shadowColor: '#6C4CE8',
+    shadowOpacity: 0.12,
   },
-  avatarHead: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FBCFE8',
-    borderWidth: 4,
-    borderColor: '#1E293B',
-    marginBottom: 4,
+  logoBadgeContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: radius.xl,
+    backgroundColor: '#F0EFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
   },
-  avatarBody: {
-    width: 72,
+  logoImg: {
+    width: 60,
     height: 60,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: colors.primary,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  featurePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    backgroundColor: '#FCF8FB',
+    borderWidth: 1,
+    borderColor: '#E4E2E4',
+  },
+  pillEmoji: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1B1B1D',
+  },
+  textSection: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginVertical: spacing.md,
   },
   title: {
-    ...typography.display,
-    color: colors.textPrimary,
+    ...typography.heading1,
+    fontSize: 26,
+    color: '#1B1B1D',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
+    ...typography.bodyLarge,
+    fontSize: 15,
+    color: '#484555',
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    lineHeight: 22,
+    maxWidth: 290,
   },
   actions: {
     width: '100%',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  getStartedBtn: {
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+  },
+  loginBtn: {
+    height: 52,
+    borderRadius: 14,
   },
 });

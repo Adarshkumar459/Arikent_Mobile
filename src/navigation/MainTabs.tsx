@@ -20,11 +20,20 @@ const TABS: TabItem[] = [
 
 export const MainTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Home');
+  const [homeStackKey, setHomeStackKey] = useState<number>(0);
+
+  const handleTabPress = (tabKey: string) => {
+    if (tabKey === 'Home') {
+      // Force HomeStack to reset to its root Home Dashboard screen
+      setHomeStackKey((prev) => prev + 1);
+    }
+    setActiveTab(tabKey);
+  };
 
   const renderActiveStack = () => {
     switch (activeTab) {
       case 'Home':
-        return <HomeStack />;
+        return <HomeStack key={`home-stack-${homeStackKey}`} />;
       case 'Tasks':
         return <TasksStack />;
       case 'Expenses':
@@ -36,14 +45,14 @@ export const MainTabs: React.FC = () => {
       case 'Profile':
         return <ProfileStack />;
       default:
-        return <HomeStack />;
+        return <HomeStack key={`home-stack-${homeStackKey}`} />;
     }
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>{renderActiveStack()}</View>
-      <BottomNavigation tabs={TABS} activeTab={activeTab} onTabPress={setActiveTab} />
+      <BottomNavigation tabs={TABS} activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
   );
 };

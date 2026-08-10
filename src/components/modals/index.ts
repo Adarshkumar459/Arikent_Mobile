@@ -1,1 +1,1 @@
-export * from './ConfirmationModal';
+// Modals barrel export

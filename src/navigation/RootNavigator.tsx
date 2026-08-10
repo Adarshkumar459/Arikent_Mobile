@@ -1,23 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { AuthNavigator } from './AuthNavigator';
-import { OnboardingNavigator } from './OnboardingNavigator';
 import { MainNavigator } from './MainNavigator';
-import { OnboardingRepository } from '../repositories/OnboardingRepository';
 import { colors } from '../theme';
 
 export const RootNavigator: React.FC = () => {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    OnboardingRepository.isOnboardingCompleted().then((completed) => {
-      setIsOnboardingCompleted(completed);
-    });
-  }, [isAuthenticated]);
-
-  if (isAuthLoading || isOnboardingCompleted === null) {
+  if (isAuthLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -25,15 +16,13 @@ export const RootNavigator: React.FC = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <AuthNavigator />;
+  // 1. Show Main Dashboard when user is authenticated
+  if (isAuthenticated) {
+    return <MainNavigator />;
   }
 
-  if (!isOnboardingCompleted) {
-    return <OnboardingNavigator />;
-  }
-
-  return <MainNavigator />;
+  // 2. Show Auth Stack (Splash -> Welcome -> Login / Register / Onboarding) when not authenticated
+  return <AuthNavigator />;
 };
 
 const styles = StyleSheet.create({
