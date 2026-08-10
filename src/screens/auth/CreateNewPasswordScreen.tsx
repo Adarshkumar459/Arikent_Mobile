@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justify.content: 'space-between',
   },
   barsRow: {
     flexDirection: 'row',

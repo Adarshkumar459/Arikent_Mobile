@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types/navigation.types';
-import { colors, spacing, typography, radius, elevation } from '../../theme';
+import { spacing, typography, radius, elevation } from '../../theme';
 import { PrimaryButton } from '../../components/buttons';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PasswordUpdated'>;
@@ -17,27 +17,21 @@ export const PasswordUpdatedScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.ambientGlowBottom} />
 
       <View style={styles.container}>
-        {/* Main Card */}
         <View style={styles.card}>
-          {/* Shield Lock Graphic Icon */}
           <View style={styles.iconCircle}>
-            <Text style={styles.shieldIcon}>🛡️</Text>
+            <Text style={styles.checkIcon}>🎉</Text>
           </View>
 
-          {/* Typography */}
-          <Text style={styles.title}>Password updated</Text>
+          <Text style={styles.title}>Password Updated!</Text>
           <Text style={styles.subtitle}>
-            Your password has been successfully updated. You can now log in with your new password.
+            Your password has been changed successfully. You can now log in using your new credentials.
           </Text>
 
-          {/* Action Button */}
-          <View style={styles.actions}>
-            <PrimaryButton
-              title="Go to Log In"
-              onPress={() => navigation.navigate('Login')}
-              style={styles.submitBtn}
-            />
-          </View>
+          <PrimaryButton
+            title="Back to Log In →"
+            onPress={() => navigation.navigate('Login')}
+            style={styles.submitBtn}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -72,7 +66,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
   },
   card: {
     width: '100%',
@@ -90,37 +83,34 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   iconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#E6DEFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
-  shieldIcon: {
-    fontSize: 42,
+  checkIcon: {
+    fontSize: 34,
   },
   title: {
     ...typography.heading1,
-    fontSize: 26,
+    fontSize: 24,
     color: '#1B1B1D',
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     ...typography.bodyLarge,
     fontSize: 14,
     color: '#484555',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: spacing['2xl'],
-    maxWidth: 290,
-  },
-  actions: {
-    width: '100%',
+    lineHeight: 20,
+    marginBottom: spacing.xl,
   },
   submitBtn: {
+    width: '100%',
     height: 54,
     borderRadius: 14,
     backgroundColor: '#6C4CE8',

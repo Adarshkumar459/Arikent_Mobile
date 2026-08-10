@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justify.content: 'space-between',
   },
   barsRow: {
     flexDirection: 'row',
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#532DCF',
     alignItems: 'center',
-    justifyContent: 'center',
+    justify.content: 'center',
     marginTop: 2,
   },
   checkboxChecked: {
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justify.content: 'center',
     marginTop: spacing.xl,
   },
   footerText: {
