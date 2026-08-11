@@ -3,7 +3,6 @@ import { typography, fontFamily, fontSize, fontWeight, lineHeight } from './typo
 import { spacing } from './spacing';
 import { radius } from './radius';
 import { elevation } from './elevation';
-import { iconSizes, iconNames } from './icons';
 import { getButtonStyle, ButtonVariant, ButtonState } from './buttons';
 
 export const theme = {
@@ -16,8 +15,6 @@ export const theme = {
   spacing,
   radius,
   elevation,
-  iconSizes,
-  iconNames,
   getButtonStyle,
 } as const;
 
@@ -33,7 +30,5 @@ export {
   spacing,
   radius,
   elevation,
-  iconSizes,
-  iconNames,
   getButtonStyle,
 };

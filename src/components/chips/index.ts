@@ -1,4 +1,3 @@
-export * from './StatusChip';
 export * from './PriorityChip';
+export * from './StatusChip';
 export * from './CategoryChip';
-export * from './Badge';

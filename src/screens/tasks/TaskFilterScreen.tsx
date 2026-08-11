@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TasksStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
-import { PrimaryButton, SecondaryButton } from '../../components/buttons';
+import { PrimaryButton } from '../../components/buttons';
 import { CategoryChip, PriorityChip, StatusChip } from '../../components/chips';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskFilter'>;
