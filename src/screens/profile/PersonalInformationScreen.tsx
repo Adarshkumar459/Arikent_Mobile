@@ -16,10 +16,11 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, radius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
+import { sanitize10Digits, toFullIndianPhone, isValid10DigitMobile } from '../../utils/phoneUtils';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'PersonalInformation'>;
 
-// Simple floating-label input that matches the Stitch design
+// Simple floating-label input matching the design system
 const FloatingInput: React.FC<{
   label: string;
   value: string;
@@ -28,7 +29,8 @@ const FloatingInput: React.FC<{
   editable?: boolean;
   icon?: string;
   keyboardType?: any;
-}> = ({ label, value, onChangeText, placeholder, editable = true, icon, keyboardType }) => {
+  maxLength?: number;
+}> = ({ label, value, onChangeText, placeholder, editable = true, icon, keyboardType, maxLength }) => {
   const [focused, setFocused] = useState(false);
   return (
     <View style={inputStyles.wrapper}>
@@ -49,6 +51,7 @@ const FloatingInput: React.FC<{
           placeholderTextColor={colors.outlineVariant}
           editable={editable}
           keyboardType={keyboardType}
+          maxLength={maxLength}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           autoCapitalize="none"
@@ -106,13 +109,51 @@ const inputStyles = StyleSheet.create({
     fontWeight: '400',
     padding: 0,
   },
+  // 2-Part Phone Input Row
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+  },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  countryFlag: {
+    fontSize: 16,
+  },
+  countryCodeText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  phoneDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: colors.outlineVariant,
+    marginHorizontal: spacing.md,
+  },
+  phoneTextInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.onSurface,
+    fontWeight: '500',
+    padding: 0,
+    letterSpacing: 0.5,
+  },
 });
 
 export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
   const { user, updateProfile } = useAuth();
   const [name, setName] = useState(user?.name || '');
   const [email] = useState(user?.email || '');
-  const [phone, setPhone] = useState('');
+  const [phoneDigits, setPhoneDigits] = useState(sanitize10Digits(user?.phone));
   const [timezone, setTimezone] = useState(user?.timezone || 'UTC');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -129,10 +170,20 @@ export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
       setErrorMsg('Name cannot be empty');
       return;
     }
+    const cleanDigits = sanitize10Digits(phoneDigits);
+    if (cleanDigits.length > 0 && cleanDigits.length !== 10) {
+      setErrorMsg('Mobile number must be exactly 10 digits.');
+      return;
+    }
+
     setErrorMsg(null);
     setIsLoading(true);
     try {
-      await updateProfile({ name: name.trim(), timezone: timezone.trim() });
+      await updateProfile({
+        name: name.trim(),
+        timezone: timezone.trim(),
+        phone: cleanDigits.length === 10 ? toFullIndianPhone(cleanDigits) : undefined,
+      });
       setIsLoading(false);
       Alert.alert('Success', 'Personal information updated successfully', [
         { text: 'OK', onPress: () => navigation.goBack() },
@@ -145,6 +196,8 @@ export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={[styles.safeArea, { paddingTop: topPad }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
       {/* Header */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -186,6 +239,7 @@ export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
               onChangeText={setName}
               placeholder="Enter your full name"
             />
+
             <FloatingInput
               label="Email Address"
               value={email}
@@ -194,14 +248,28 @@ export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
               icon="✉️"
               keyboardType="email-address"
             />
-            <FloatingInput
-              label="Phone Number"
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+1 (555) 000-0000"
-              icon="📞"
-              keyboardType="phone-pad"
-            />
+
+            {/* Mobile Number Field (2 Separate Parts: Fixed +91 Badge + 10 Digits Input) */}
+            <View style={inputStyles.wrapper}>
+              <Text style={inputStyles.floatingLabel}>Phone Number</Text>
+              <View style={inputStyles.phoneInputRow}>
+                <View style={inputStyles.countryBadge}>
+                  <Text style={inputStyles.countryFlag}>🇮🇳</Text>
+                  <Text style={inputStyles.countryCodeText}>+91</Text>
+                </View>
+                <View style={inputStyles.phoneDivider} />
+                <RNTextInput
+                  style={inputStyles.phoneTextInput}
+                  value={phoneDigits}
+                  onChangeText={(val) => setPhoneDigits(val.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="9876543210"
+                  placeholderTextColor={colors.outlineVariant}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+              </View>
+            </View>
+
             <FloatingInput
               label="Timezone"
               value={timezone}
@@ -233,7 +301,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.primaryLight,
   },
-  // ── Top Bar ──────────────────────────────
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -272,7 +339,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing['5xl'],
   },
-  // ── Avatar ────────────────────────────────
   avatarSection: {
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -304,7 +370,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 0.1,
   },
-  // ── Error ─────────────────────────────────
   errorBanner: {
     backgroundColor: colors.errorContainer,
     borderRadius: radius.md,
@@ -316,7 +381,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  // ── Form Card ─────────────────────────────
   formCard: {
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: 20,
@@ -328,7 +392,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  // ── Save Button ───────────────────────────
   saveBtn: {
     backgroundColor: colors.primary,
     height: 56,

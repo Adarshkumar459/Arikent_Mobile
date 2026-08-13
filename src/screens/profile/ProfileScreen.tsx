@@ -15,32 +15,51 @@ import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, radius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { useTabNav } from '../../context/TabContext';
+import { useAppLock } from '../../security/AppLockContext';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
+
+type ProfileNoParamRoute = {
+  [K in keyof ProfileStackParamList]: ProfileStackParamList[K] extends undefined ? K : never;
+}[keyof ProfileStackParamList];
 
 interface MenuItem {
   label: string;
   icon: string;
-  route: keyof ProfileStackParamList;
+  route: ProfileNoParamRoute;
+  subtitle?: string;
+  badge?: string;
+  onPress?: () => void;
 }
 
 const ACCOUNT_MENU: MenuItem[] = [
   { label: 'Personal Information', icon: '👤', route: 'PersonalInformation' },
-  { label: 'Change Password', icon: '🔒', route: 'ChangePassword' },
-  { label: 'Notification Settings', icon: '🔔', route: 'NotificationSettings' },
+  { label: 'Change Password', icon: '🔑', route: 'ChangePassword' },
 ];
 
 const PREF_MENU: MenuItem[] = [
   { label: 'App Preferences', icon: '🎨', route: 'Preferences' },
-  { label: 'Security & Privacy', icon: '🛡️', route: 'SecuritySettings' },
+  { label: 'Notification Settings', icon: '🔔', route: 'NotificationSettings' },
   { label: 'About ARKIENT', icon: 'ℹ️', route: 'About' },
 ];
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
   const { switchTab } = useTabNav();
+  const { settings, lockState } = useAppLock();
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+
+  const isAppLockOn = settings.enabled && lockState !== 'DISABLED';
+
+  const handleAppLockPress = () => {
+    if (settings.pinConfigured) {
+      navigation.navigate('AppLockSettings');
+    } else {
+      // First-time setup (#3): open 6-digit PIN setup screen directly
+      navigation.navigate('AppLockSetup', { mode: 'setup' });
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out of ARKIENT?', [
@@ -58,30 +77,57 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     return name.split(' ').map((p) => p[0]).join('').toUpperCase().substring(0, 2);
   };
 
-  const renderMenuGroup = (items: MenuItem[]) => (
-    <View style={styles.menuCard}>
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1;
-        return (
-          <TouchableOpacity
-            key={item.route}
-            style={[styles.menuRow, !isLast && styles.menuRowBorder]}
-            onPress={() => navigation.navigate(item.route)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuIconCircle}>
-              <Text style={styles.menuIconEmoji}>{item.icon}</Text>
-            </View>
-            <Text style={styles.menuLabel}>{item.label}</Text>
-            <Text style={styles.menuChevron}>›</Text>
-          </TouchableOpacity>
-        );
-      })}
+  const renderMenuGroup = (title: string, items: MenuItem[]) => (
+    <View style={styles.menuGroup}>
+      <Text style={styles.groupHeader}>{title}</Text>
+      <View style={styles.menuCard}>
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1;
+          const onPressAction = item.onPress || (() => navigation.navigate(item.route));
+
+          return (
+            <TouchableOpacity
+              key={item.label}
+              style={[styles.menuRow, !isLast && styles.menuRowBorder]}
+              onPress={onPressAction}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIconEmoji}>{item.icon}</Text>
+              </View>
+              <View style={styles.menuTextContainer}>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                {item.subtitle && <Text style={styles.menuSubtitle}>{item.subtitle}</Text>}
+              </View>
+              {item.badge && (
+                <View style={[styles.badge, item.badge === 'ON' ? styles.badgeOn : styles.badgeOff]}>
+                  <Text style={[styles.badgeText, item.badge === 'ON' ? styles.badgeTextOn : styles.badgeTextOff]}>
+                    {item.badge}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.menuChevron}>›</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 
+  const securityMenu: MenuItem[] = [
+    {
+      label: 'App Lock',
+      icon: '🔐',
+      route: 'AppLockSettings',
+      subtitle: isAppLockOn ? 'Protect ARKIENT with PIN/biometric' : 'PIN protection disabled',
+      badge: isAppLockOn ? 'ON' : 'OFF',
+      onPress: handleAppLockPress,
+    },
+  ];
+
   return (
     <View style={[styles.root, { paddingTop: topPad }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       {/* Top Bar */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeftRow}>
@@ -127,17 +173,19 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* Account group */}
-        {renderMenuGroup(ACCOUNT_MENU)}
+        {renderMenuGroup('ACCOUNT', ACCOUNT_MENU)}
 
-        {/* Prefs group */}
-        {renderMenuGroup(PREF_MENU)}
+        {/* Security group (#1, #14) */}
+        {renderMenuGroup('SECURITY', securityMenu)}
+
+        {/* Preferences group */}
+        {renderMenuGroup('PREFERENCES', PREF_MENU)}
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.75}>
           <Text style={styles.logoutText}>↪  Logout</Text>
         </TouchableOpacity>
 
-        {/* Bottom spacer for bottom nav */}
         <View style={{ height: 16 }} />
       </ScrollView>
     </View>
@@ -198,7 +246,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing['5xl'],
   },
-  // Avatar section
   profileHeader: {
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -264,11 +311,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
-  // Menu cards
+  menuGroup: {
+    marginBottom: spacing.md,
+  },
+  groupHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.outline,
+    letterSpacing: 0.8,
+    marginBottom: spacing.xs + 2,
+    paddingLeft: spacing.xs,
+  },
   menuCard: {
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: radius.xl,
-    marginBottom: spacing.md,
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
@@ -296,18 +352,46 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   menuIconEmoji: { fontSize: 17 },
-  menuLabel: {
+  menuTextContainer: {
     flex: 1,
+  },
+  menuLabel: {
     fontSize: 15,
     color: colors.onSurface,
-    fontWeight: '400',
+    fontWeight: '500',
+  },
+  menuSubtitle: {
+    fontSize: 12,
+    color: colors.outline,
+    marginTop: 1,
+  },
+  badge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    marginRight: spacing.xs,
+  },
+  badgeOn: {
+    backgroundColor: colors.primaryLight,
+  },
+  badgeOff: {
+    backgroundColor: colors.surfaceContainerHigh,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgeTextOn: {
+    color: colors.primary,
+  },
+  badgeTextOff: {
+    color: colors.outline,
   },
   menuChevron: {
     fontSize: 22,
     color: colors.outline,
     marginTop: -2,
   },
-  // Logout
   logoutBtn: {
     alignItems: 'center',
     justifyContent: 'center',

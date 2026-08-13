@@ -10,12 +10,21 @@
       "resizeMode": "contain",
       "backgroundColor": "#5B4BFF"
     },
+    "ios": {
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "ARKIENT uses Face ID to unlock the app securely."
+      }
+    },
     "android": {
       "package": "com.adarshbhagat459.arkientmobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#5B4BFF"
-      }
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     }
   }
 }

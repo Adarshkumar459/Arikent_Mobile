@@ -18,12 +18,14 @@ import { PrimaryButton } from '../../components/buttons';
 import { authApi } from '../../services/api/authApi';
 import { CustomAlert, AlertButton } from '../../components/alerts/CustomAlert';
 import { parseErrorMessage } from '../../utils/errorUtils';
+import { sanitize10Digits, toFullIndianPhone, isValid10DigitMobile } from '../../utils/phoneUtils';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phoneDigits, setPhoneDigits] = useState(''); // Stores only the 10 numeric digits
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -88,9 +90,19 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
     const trimmedConfirmPassword = confirmPassword.trim();
+    const cleanPhoneDigits = sanitize10Digits(phoneDigits);
 
     if (!trimmedName || !trimmedEmail || !trimmedPassword || !trimmedConfirmPassword) {
       showAlert('Missing Information', 'Please fill in all required fields.');
+      return;
+    }
+    // REQUIRED FIELD Validation for Mobile Number
+    if (!cleanPhoneDigits) {
+      showAlert('Mobile Number Required', 'Please enter your 10-digit mobile number.');
+      return;
+    }
+    if (!isValid10DigitMobile(cleanPhoneDigits)) {
+      showAlert('Invalid Mobile Number', 'Mobile number must be exactly 10 digits.');
       return;
     }
     if (trimmedPassword.length < 8) {
@@ -127,6 +139,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         email: trimmedEmail,
         password: trimmedPassword,
         name: trimmedName,
+        phone: toFullIndianPhone(cleanPhoneDigits),
       });
 
       setIsLoading(false);
@@ -209,7 +222,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.form}>
               {/* Full Name */}
               <View style={styles.inputGroup}>
-                <Text style={styles.fieldLabel}>Full Name</Text>
+                <Text style={styles.fieldLabel}>Full Name *</Text>
                 <View style={styles.inputBox}>
                   <Text style={styles.inputIcon}>👤</Text>
                   <TextInput
@@ -224,7 +237,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Email Address */}
               <View style={styles.inputGroup}>
-                <Text style={styles.fieldLabel}>Email Address</Text>
+                <Text style={styles.fieldLabel}>Email Address *</Text>
                 <View style={styles.inputBox}>
                   <Text style={styles.inputIcon}>✉️</Text>
                   <TextInput
@@ -240,9 +253,32 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
               </View>
 
+              {/* Mobile Number (2 Separate Parts: Fixed +91 Badge + 10 Digits Input) — REQUIRED */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.fieldLabel}>Mobile Number *</Text>
+                <View style={styles.phoneInputRow}>
+                  {/* Part 1: Country Code Badge */}
+                  <View style={styles.countryBadge}>
+                    <Text style={styles.countryFlag}>🇮🇳</Text>
+                    <Text style={styles.countryCodeText}>+91</Text>
+                  </View>
+                  <View style={styles.phoneDivider} />
+                  {/* Part 2: 10-Digit Mobile Input */}
+                  <TextInput
+                    style={styles.phoneTextInput}
+                    placeholder="9876543210"
+                    placeholderTextColor="#A19DAE"
+                    value={phoneDigits}
+                    onChangeText={(val) => setPhoneDigits(val.replace(/\D/g, '').slice(0, 10))}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                </View>
+              </View>
+
               {/* Password */}
               <View style={styles.inputGroup}>
-                <Text style={styles.fieldLabel}>Password</Text>
+                <Text style={styles.fieldLabel}>Password *</Text>
                 <View style={styles.inputBox}>
                   <Text style={styles.inputIcon}>🔒</Text>
                   <TextInput
@@ -316,7 +352,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
               {/* Confirm Password */}
               <View style={styles.inputGroup}>
-                <Text style={styles.fieldLabel}>Confirm Password</Text>
+                <Text style={styles.fieldLabel}>Confirm Password *</Text>
                 <View
                   style={[
                     styles.inputBox,
@@ -467,6 +503,45 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     backgroundColor: '#FFFFFF',
+  },
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#C9C4D7',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: '#FFFFFF',
+  },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.xs,
+  },
+  countryFlag: {
+    fontSize: 16,
+  },
+  countryCodeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#532DCF',
+  },
+  phoneDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E8E4F5',
+    marginHorizontal: spacing.xs,
+  },
+  phoneTextInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 14,
+    color: '#1B1B1D',
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    paddingHorizontal: spacing.xs,
   },
   inputErrorBorder: {
     borderColor: '#BA1A1A',

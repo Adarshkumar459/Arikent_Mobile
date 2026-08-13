@@ -8,9 +8,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: { name?: string; email?: string; avatar?: string; timezone?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; email?: string; phone?: string; avatar?: string; timezone?: string }) => Promise<void>;
   changePassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => Promise<void>;
   deleteAccount: () => Promise<void>;
   bootstrapAuth: () => Promise<void>;
@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateProfile = async (data: { name?: string; email?: string; avatar?: string; timezone?: string }) => {
+  const updateProfile = async (data: { name?: string; email?: string; phone?: string; avatar?: string; timezone?: string }) => {
     const response = await authApi.updateProfile(data);
     if (response.data && response.data.success) {
       setUser(response.data.data.user);

@@ -174,7 +174,7 @@ export const TaskDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.detailIcon}>🔄</Text>
             <View style={styles.detailCol}>
               <Text style={styles.detailLabel}>Repeat</Text>
-              <Text style={styles.detailVal}>{task.recurrence ? task.recurrence.toUpperCase() : 'Does not repeat'}</Text>
+              <Text style={styles.detailVal}>{task.recurrence ? String(task.recurrence.frequency).toUpperCase() : 'Does not repeat'}</Text>
             </View>
           </View>
 

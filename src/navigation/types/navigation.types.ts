@@ -96,6 +96,8 @@ export type ProfileStackParamList = {
   SecuritySettings: undefined;
   About: undefined;
   DeleteAccount: undefined;
+  AppLockSettings: undefined;
+  AppLockSetup: { mode?: 'setup' | 'change' } | undefined;
 };
 
 export type MainTabParamList = {

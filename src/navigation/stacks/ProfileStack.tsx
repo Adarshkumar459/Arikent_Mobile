@@ -9,13 +9,20 @@ import { PreferencesScreen } from '../../screens/profile/PreferencesScreen';
 import { SecuritySettingsScreen } from '../../screens/profile/SecuritySettingsScreen';
 import { AboutScreen } from '../../screens/profile/AboutScreen';
 import { DeleteAccountScreen } from '../../screens/profile/DeleteAccountScreen';
+import { AppLockSettingsScreen } from '../../screens/profile/AppLockSettingsScreen';
+import { PinSetupScreen } from '../../security/PinSetupScreen';
 import { colors } from '../../theme';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
 export const ProfileStack: React.FC = () => {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.textPrimary }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.onSurface,
+      }}
+    >
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PersonalInformation" component={PersonalInformationScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
@@ -24,6 +31,8 @@ export const ProfileStack: React.FC = () => {
       <Stack.Screen name="SecuritySettings" component={SecuritySettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: false }} />
       <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AppLockSettings" component={AppLockSettingsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="AppLockSetup" component={PinSetupScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 };

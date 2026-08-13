@@ -4,6 +4,7 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  phone?: string;
   avatar?: string;
   timezone?: string;
   isVerified: boolean;
@@ -27,7 +28,7 @@ export interface ForgotPasswordResponse {
 }
 
 export const authApi = {
-  register: (data: { email: string; password: string; name: string }) =>
+  register: (data: { email: string; password: string; name: string; phone?: string }) =>
     apiClient.post<{ success: boolean; message: string; data: AuthResponse }>('/auth/register', data),
 
   login: (data: { email: string; password: string }) =>
@@ -44,7 +45,7 @@ export const authApi = {
   getMe: () =>
     apiClient.get<{ success: boolean; message: string; data: { user: UserProfile } }>('/auth/me'),
 
-  updateProfile: (data: { name?: string; email?: string; avatar?: string; timezone?: string }) =>
+  updateProfile: (data: { name?: string; email?: string; phone?: string; avatar?: string; timezone?: string }) =>
     apiClient.patch<{ success: boolean; message: string; data: { user: UserProfile } }>('/auth/me', data),
 
   changePassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
