@@ -3,38 +3,37 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  TouchableOpacity,
-  ActivityIndicator,
+  StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ExpensesStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
-import { PrimaryButton, SecondaryButton, DangerButton } from '../../components/buttons';
-import { StatusChip, CategoryChip } from '../../components/chips';
 import { ExpenseRepository } from '../../repositories/ExpenseRepository';
 import { ExpenseItem } from '../../services/api/expenseApi';
-import { ExpenseOptionsSheet } from '../../components/sheets/ExpenseOptionsSheet';
+import { ConfirmationModal } from '../../components/modals/ConfirmationModal';
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, 'ExpenseDetails'>;
 
 export const ExpenseDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const expenseId = route.params?.expenseId;
+  const { expenseId } = route.params;
   const [expense, setExpense] = useState<ExpenseItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
 
-  const fetchExpense = async () => {
-    if (!expenseId) return;
+  const fetchDetails = async () => {
     setIsLoading(true);
     try {
       const data = await ExpenseRepository.getExpenseById(expenseId);
       setExpense(data);
-    } catch (err) {
-      setExpense(null);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to load expense details');
+      navigation.goBack();
     } finally {
       setIsLoading(false);
     }
@@ -42,133 +41,140 @@ export const ExpenseDetailsScreen: React.FC<Props> = ({ route, navigation }) => 
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchExpense();
+      fetchDetails();
     });
     return unsubscribe;
   }, [navigation, expenseId]);
 
-  const handleDelete = () => {
-    if (!expense) return;
-    Alert.alert('Delete Transaction', 'Are you sure you want to delete this transaction?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await ExpenseRepository.deleteExpense(expense.id);
-            navigation.goBack();
-          } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to delete transaction');
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleDuplicate = async () => {
+  const handleDelete = async () => {
     if (!expense) return;
     try {
-      await ExpenseRepository.createExpense({
-        type: expense.type,
-        amount: expense.amount,
-        category: expense.category,
-        paymentMethod: expense.paymentMethod,
-        date: expense.date,
-        note: expense.note ? `${expense.note} (Copy)` : 'Copy',
-      });
+      await ExpenseRepository.deleteExpense(expense.id);
+      setIsDeleteModalVisible(false);
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to duplicate transaction');
+      Alert.alert('Error', err.message || 'Failed to delete expense');
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !expense) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Expense Details" onBackPress={() => navigation.goBack()} />
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
-  if (!expense) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Expense Details" onBackPress={() => navigation.goBack()} />
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>Transaction not found</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const formattedDate = expense.date
+    ? new Date(expense.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : 'Not Specified';
 
-  const isIncome = expense.type === 'income';
+  const categoryLabel = expense.category
+    ? expense.category.charAt(0).toUpperCase() + expense.category.slice(1)
+    : 'Expense';
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      {/* ScreenHeader matching Goal & Calendar pages SAME TO SAME */}
       <ScreenHeader
         title="Expense Details"
-        onBackPress={() => navigation.goBack()}
         rightAction={
-          <TouchableOpacity onPress={() => setIsOptionsOpen(true)}>
-            <Text style={styles.optionsIcon}>•••</Text>
+          <TouchableOpacity
+            onPress={() => setIsDeleteModalVisible(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={{ fontSize: 18 }}>🗑️</Text>
           </TouchableOpacity>
         }
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <View style={styles.badgeRow}>
-            <StatusChip status={isIncome ? 'Income' : ('Expense' as any)} />
-            <CategoryChip label={expense.category} selected />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Primary Expense Card */}
+        <View style={styles.primaryCard}>
+          {/* Left Category Accent Line */}
+          <View style={styles.accentLine} />
+
+          {/* Amount & Title Section */}
+          <View style={styles.primaryTopSection}>
+            <Text style={styles.amountText}>₹{expense.amount.toLocaleString('en-IN')}</Text>
+            <Text style={styles.titleText}>{expense.note || categoryLabel}</Text>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeIcon}>🧾</Text>
+              <Text style={styles.categoryBadgeText}>{categoryLabel}</Text>
+            </View>
           </View>
 
-          <Text style={[styles.amountText, isIncome ? styles.incomeColor : styles.expenseColor]}>
-            {isIncome ? '+' : '-'}₹{expense.amount.toLocaleString('en-IN')}
-          </Text>
+          {/* Details Grid */}
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailLeft}>
+                <Text style={styles.detailIcon}>📅</Text>
+                <Text style={styles.detailLabel}>Date</Text>
+              </View>
+              <Text style={styles.detailValue}>{formattedDate}</Text>
+            </View>
 
-          {expense.note ? (
-            <Text style={styles.note}>{expense.note}</Text>
-          ) : (
-            <Text style={styles.noNote}>No notes provided.</Text>
-          )}
+            <View style={styles.detailRow}>
+              <View style={styles.detailLeft}>
+                <Text style={styles.detailIcon}>🏦</Text>
+                <Text style={styles.detailLabel}>Payment Method</Text>
+              </View>
+              <Text style={styles.detailValue}>{expense.paymentMethod || 'Cash'}</Text>
+            </View>
 
-          <View style={styles.metaDivider} />
+            {expense.note ? (
+              <View style={styles.notesGroup}>
+                <View style={styles.detailLeft}>
+                  <Text style={styles.detailIcon}>📝</Text>
+                  <Text style={styles.detailLabel}>Notes</Text>
+                </View>
+                <View style={styles.notesBox}>
+                  <Text style={styles.notesText}>{expense.note}</Text>
+                </View>
+              </View>
+            ) : null}
 
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Payment Method:</Text>
-            <Text style={styles.metaValue}>{(expense.paymentMethod || 'cash').toUpperCase()}</Text>
-          </View>
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Date:</Text>
-            <Text style={styles.metaValue}>{new Date(expense.date).toLocaleDateString()}</Text>
-          </View>
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Logged On:</Text>
-            <Text style={styles.metaValue}>{new Date(expense.createdAt).toLocaleDateString()}</Text>
+            <View style={[styles.detailRow, styles.createdRow]}>
+              <Text style={styles.createdLabel}>Created</Text>
+              <Text style={styles.createdValue}>
+                {expense.createdAt ? new Date(expense.createdAt).toLocaleString() : formattedDate}
+              </Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.actions}>
-          <SecondaryButton
-            title="Edit Transaction"
+        {/* Action Buttons */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={styles.editButton}
             onPress={() => navigation.navigate('EditExpense', { expenseId: expense.id })}
-          />
-          <DangerButton title="Delete Transaction" onPress={handleDelete} />
+            activeOpacity={0.8}
+          >
+            <Text style={styles.editButtonText}>Edit Expense</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => setIsDeleteModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.deleteButtonText}>Delete Expense</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
-      <ExpenseOptionsSheet
-        visible={isOptionsOpen}
-        onClose={() => setIsOptionsOpen(false)}
-        onEdit={() => navigation.navigate('EditExpense', { expenseId: expense.id })}
-        onDuplicate={handleDuplicate}
-        onDelete={handleDelete}
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        visible={isDeleteModalVisible}
+        title="Delete Expense?"
+        message={`Are you sure you want to delete this ${categoryLabel} record? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDanger={true}
+        onConfirm={handleDelete}
+        onCancel={() => setIsDeleteModalVisible(false)}
       />
     </SafeAreaView>
   );
@@ -179,76 +185,157 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centered: {
+  loadingContainer: {
     flex: 1,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  optionsIcon: {
-    fontSize: 20,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  content: {
+  scrollContent: {
     padding: spacing.lg,
-    gap: spacing.xl,
+    paddingBottom: 60,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+  primaryCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 20,
     padding: spacing.lg,
-    gap: spacing.md,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.outlineVariant + '20',
+    marginBottom: spacing.xl,
     ...elevation.small,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+  accentLine: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.secondaryContainer,
+  },
+  primaryTopSection: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceVariant,
+    marginBottom: spacing.md,
   },
   amountText: {
     ...typography.display,
     fontSize: 36,
-    marginTop: spacing.xs,
+    color: colors.onSurface,
+    marginBottom: 4,
   },
-  incomeColor: {
-    color: colors.success,
+  titleText: {
+    ...typography.heading3,
+    fontSize: 18,
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.xs,
   },
-  expenseColor: {
-    color: colors.error,
-  },
-  note: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  noNote: {
-    ...typography.bodySmall,
-    color: colors.textDisabled,
-    fontStyle: 'italic',
-  },
-  metaDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.xs,
-  },
-  metaRow: {
+  categoryBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    gap: 4,
+    marginTop: 4,
   },
-  metaLabel: {
+  categoryBadgeIcon: {
+    fontSize: 12,
+  },
+  categoryBadgeText: {
     ...typography.caption,
-    color: colors.textSecondary,
-  },
-  metaValue: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
+    fontSize: 12,
     fontWeight: '600',
+    color: colors.primary,
   },
-  actions: {
+  detailsGrid: {
     gap: spacing.md,
   },
-  errorText: {
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  detailLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  detailIcon: {
+    fontSize: 16,
+  },
+  detailLabel: {
     ...typography.body,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+  },
+  detailValue: {
+    ...typography.heading4,
+    fontSize: 15,
+    color: colors.onSurface,
+  },
+  notesGroup: {
+    gap: spacing.xs,
+    paddingVertical: 4,
+  },
+  notesBox: {
+    backgroundColor: colors.surfaceContainerLow,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginTop: 4,
+  },
+  notesText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.onSurface,
+    lineHeight: 20,
+  },
+  createdRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceVariant,
+    paddingTop: spacing.md,
+    marginTop: spacing.xs,
+  },
+  createdLabel: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.outline,
+  },
+  createdValue: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  actionsContainer: {
+    gap: spacing.md,
+  },
+  editButton: {
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editButtonText: {
+    ...typography.heading3,
+    fontSize: 15,
+    color: colors.primaryContainer,
+  },
+  deleteButton: {
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: colors.errorContainer + '40',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    ...typography.heading3,
+    fontSize: 15,
     color: colors.error,
   },
 });

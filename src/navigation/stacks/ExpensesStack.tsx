@@ -10,13 +10,20 @@ import { ExpenseFilterScreen } from '../../screens/expenses/ExpenseFilterScreen'
 import { ExpenseEmptyScreen } from '../../screens/expenses/ExpenseEmptyScreen';
 import { ExpenseLoadingScreen } from '../../screens/expenses/ExpenseLoadingScreen';
 import { ExpenseErrorScreen } from '../../screens/expenses/ExpenseErrorScreen';
+import { useTabNav } from '../../context/TabContext';
 import { colors } from '../../theme';
 
 const Stack = createNativeStackNavigator<ExpensesStackParamList>();
 
 export const ExpensesStack: React.FC = () => {
+  const { resetSignal } = useTabNav();
+
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.textPrimary }}>
+    <Stack.Navigator
+      key={`expenses-navigator-${resetSignal}`}
+      initialRouteName="ExpenseList"
+      screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.textPrimary }}
+    >
       <Stack.Screen name="ExpenseList" component={ExpensesScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AddExpense" component={AddExpenseScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EditExpense" component={EditExpenseScreen} options={{ headerShown: false }} />

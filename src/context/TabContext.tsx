@@ -1,12 +1,14 @@
 import React, { createContext, useContext } from 'react';
 
-interface TabContextValue {
+export interface TabContextType {
   activeTab: string;
+  resetSignal: number;
   switchTab: (tabKey: string) => void;
 }
 
-export const TabContext = createContext<TabContextValue>({
+export const TabContext = createContext<TabContextType>({
   activeTab: 'Home',
+  resetSignal: 0,
   switchTab: () => {},
 });
 

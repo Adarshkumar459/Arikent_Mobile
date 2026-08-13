@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, radius } from '../../theme';
+import { colors, spacing } from '../../theme';
 
 export interface TabItem {
   key: string;
@@ -51,7 +51,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {tabs.map((tab) => {
-        const isActive = tab.key === activeTab;
+        const isActive = tab.key === activeTab || tab.key.replace('Tab', '') === activeTab.replace('Tab', '');
         const iconColor = isActive ? colors.primary : colors.textSecondary;
 
         return (
@@ -65,7 +65,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             {isActive ? <View style={styles.activePill} /> : null}
 
             {/* Icon */}
-            {tab.key === 'Profile' ? (
+            {tab.key.includes('Profile') ? (
               <PersonIcon color={iconColor} />
             ) : (
               <Text style={[styles.icon, { color: iconColor }]}>{tab.icon}</Text>

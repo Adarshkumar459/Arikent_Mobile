@@ -1,3 +1,5 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type AuthStackParamList = {
   Splash: undefined;
   Welcome: undefined;
@@ -23,6 +25,14 @@ export type HomeStackParamList = {
   DashboardLoading: undefined;
   DashboardEmpty: undefined;
   DashboardError: undefined;
+  Reminders: undefined;
+  ReminderDetails: { reminderId: string };
+  SelectedDate: { date: string };
+  Notes: undefined;
+  Habits: undefined;
+  CreateHabit: undefined;
+  EditHabit: { habitId: string };
+  HabitDetails: { habitId: string };
 };
 
 export type TasksStackParamList = {
@@ -69,6 +79,14 @@ export type CalendarStackParamList = {
   RemindersEmpty: undefined;
 };
 
+export type NotesStackParamList = {
+  NoteList: undefined;
+  NoteDetails: { noteId: string };
+  CreateNote: undefined;
+  EditNote: { noteId: string };
+  NoteSearch: undefined;
+};
+
 export type ProfileStackParamList = {
   Profile: undefined;
   PersonalInformation: undefined;
@@ -81,12 +99,13 @@ export type ProfileStackParamList = {
 };
 
 export type MainTabParamList = {
-  HomeTab: undefined;
-  TasksTab: undefined;
-  ExpensesTab: undefined;
-  GoalsTab: undefined;
-  CalendarTab: undefined;
-  ProfileTab: undefined;
+  HomeTab: NavigatorScreenParams<HomeStackParamList>;
+  TasksTab: NavigatorScreenParams<TasksStackParamList>;
+  ExpensesTab: NavigatorScreenParams<ExpensesStackParamList>;
+  GoalsTab: NavigatorScreenParams<GoalsStackParamList>;
+  NotesTab: NavigatorScreenParams<NotesStackParamList>;
+  CalendarTab: NavigatorScreenParams<CalendarStackParamList>;
+  ProfileTab: NavigatorScreenParams<ProfileStackParamList>;
 };
 
 export type RootStackParamList = {

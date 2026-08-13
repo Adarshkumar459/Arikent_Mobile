@@ -9,13 +9,20 @@ import { TaskFilterScreen } from '../../screens/tasks/TaskFilterScreen';
 import { TaskEmptyScreen } from '../../screens/tasks/TaskEmptyScreen';
 import { TaskLoadingScreen } from '../../screens/tasks/TaskLoadingScreen';
 import { TaskErrorScreen } from '../../screens/tasks/TaskErrorScreen';
+import { useTabNav } from '../../context/TabContext';
 import { colors } from '../../theme';
 
 const Stack = createNativeStackNavigator<TasksStackParamList>();
 
 export const TasksStack: React.FC = () => {
+  const { resetSignal } = useTabNav();
+
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.textPrimary }}>
+    <Stack.Navigator
+      key={`tasks-navigator-${resetSignal}`}
+      initialRouteName="TaskList"
+      screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.textPrimary }}
+    >
       <Stack.Screen name="TaskList" component={TaskListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AddTask" component={AddTaskScreen} options={{ headerShown: false }} />
       <Stack.Screen name="EditTask" component={EditTaskScreen} options={{ headerShown: false }} />

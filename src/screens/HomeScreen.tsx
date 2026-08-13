@@ -452,7 +452,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                   <View style={styles.emptyActionRow}>
                     <TouchableOpacity
                       style={styles.emptyAddBtn}
-                      onPress={() => navigation.navigate('AddTask')}
+                      onPress={() => switchTab('Tasks')}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.emptyAddBtnText}>+ Add Task</Text>
@@ -483,7 +483,14 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                       <TouchableOpacity
                         key={item.id}
                         style={[styles.taskItemCard, { borderLeftColor: accentColor }]}
-                        onPress={() => navigation.navigate('TaskDetails', { taskId: item.id })}
+                        onPress={() => {
+                          switchTab('Tasks');
+                          try {
+                            navigation.navigate('TasksTab', { screen: 'TaskDetails', params: { taskId: item.id } });
+                          } catch {
+                            navigation.navigate('TaskDetails', { taskId: item.id });
+                          }
+                        }}
                         activeOpacity={0.87}
                       >
                         {/* Circle checkbox */}
@@ -602,7 +609,14 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                     <TouchableOpacity
                       key={task.id || task._id}
                       style={styles.upcomingCard}
-                      onPress={() => navigation.navigate('TaskDetails', { taskId: task.id })}
+                      onPress={() => {
+                        switchTab('Tasks');
+                        try {
+                          navigation.navigate('TasksTab', { screen: 'TaskDetails', params: { taskId: task.id } });
+                        } catch {
+                          navigation.navigate('TaskDetails', { taskId: task.id });
+                        }
+                      }}
                       activeOpacity={0.82}
                     >
                       <View style={styles.upcomingDot} />

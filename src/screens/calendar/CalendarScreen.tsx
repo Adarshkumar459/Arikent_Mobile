@@ -1,11 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CalendarStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
-import { TaskRepository } from '../../repositories/TaskRepository';
 import { ReminderRepository } from '../../repositories/ReminderRepository';
+import { ReminderItem } from '../../services/api/reminderApi';
+import { DatePickerModal } from '../../components/modals/DatePickerModal';
 import { useTabNav } from '../../context/TabContext';
 
 type Props = NativeStackScreenProps<CalendarStackParamList, 'Calendar'>;
@@ -14,144 +24,239 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const CalendarScreen: React.FC<Props> = ({ navigation }) => {
   const { switchTab } = useTabNav();
-  const [currentYearMonth, setCurrentYearMonth] = useState<string>(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  });
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 7, 12)); // August 12, 2026
+  const [activeMonthDate, setActiveMonthDate] = useState<Date>(new Date(2026, 7, 1));
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState<boolean>(false);
 
-  const [scheduledDates, setScheduledDates] = useState<Set<string>>(new Set());
+  const [reminders, setReminders] = useState<ReminderItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const fetchScheduledDates = async () => {
+  const fetchRemindersData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     try {
-      const [taskRes, reminderRes] = await Promise.all([
-        TaskRepository.getTasks(),
-        ReminderRepository.getReminders(),
-      ]);
-      const dates = new Set<string>();
-      taskRes.items.forEach((t) => {
-        if (t.dueDate) dates.add(t.dueDate.substring(0, 10));
-      });
-      reminderRes.items.forEach((r) => {
-        if (r.scheduledAt) dates.add(r.scheduledAt.substring(0, 10));
-      });
-      setScheduledDates(dates);
-    } catch {
-      setScheduledDates(new Set());
+      const res = await ReminderRepository.getReminders();
+      setReminders(res.items);
+    } catch (err: any) {
+      console.log('Error fetching reminders:', err.message);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchScheduledDates();
+      fetchRemindersData(reminders.length === 0);
     });
     return unsubscribe;
   }, [navigation]);
 
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    fetchRemindersData(false);
+  }, []);
+
   const handlePrevMonth = () => {
-    const [yStr, mStr] = currentYearMonth.split('-');
-    let y = parseInt(yStr, 10);
-    let m = parseInt(mStr, 10) - 1;
-    if (m < 1) {
-      m = 12;
-      y -= 1;
-    }
-    setCurrentYearMonth(`${y}-${String(m).padStart(2, '0')}`);
+    setActiveMonthDate((prev) => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    });
   };
 
   const handleNextMonth = () => {
-    const [yStr, mStr] = currentYearMonth.split('-');
-    let y = parseInt(yStr, 10);
-    let m = parseInt(mStr, 10) + 1;
-    if (m > 12) {
-      m = 1;
-      y += 1;
-    }
-    setCurrentYearMonth(`${y}-${String(m).padStart(2, '0')}`);
+    setActiveMonthDate((prev) => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    });
   };
 
-  const monthFormatted = (() => {
-    const [yStr, mStr] = currentYearMonth.split('-');
-    const dateObj = new Date(parseInt(yStr, 10), parseInt(mStr, 10) - 1, 1);
-    return dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  })();
+  const monthFormatted = activeMonthDate.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
 
-  const renderCalendarGrid = () => {
-    const [yearStr, monthStr] = currentYearMonth.split('-');
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
+  // Calendar Grid Builder
+  const year = activeMonthDate.getFullYear();
+  const month = activeMonthDate.getMonth();
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const prevMonthTotalDays = new Date(year, month, 0).getDate();
 
-    const firstDayIndex = new Date(year, month - 1, 1).getDay();
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const todayStr = new Date().toISOString().substring(0, 10);
-
-    const gridItems = [];
-    for (let i = 0; i < firstDayIndex; i++) {
-      gridItems.push(<View key={`blank-${i}`} style={styles.emptyDayCell} />);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const formattedDay = String(day).padStart(2, '0');
-      const dateStr = `${yearStr}-${monthStr}-${formattedDay}`;
-      const isToday = todayStr === dateStr;
-      const hasEvents = scheduledDates.has(dateStr);
-
-      gridItems.push(
-        <TouchableOpacity
-          key={dateStr}
-          style={[styles.dayCell, isToday && styles.todayCell]}
-          onPress={() => navigation.navigate('SelectedDate', { date: dateStr })}
-        >
-          <Text style={[styles.dayText, isToday && styles.todayText]}>{day}</Text>
-          {hasEvents ? <View style={styles.eventDot} /> : <View style={styles.dotPlaceholder} />}
-        </TouchableOpacity>
-      );
-    }
-
-    return gridItems;
+  const handleDatePress = (dayNum: number) => {
+    const targetDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    setSelectedDate(new Date(year, month, dayNum));
+    navigation.navigate('SelectedDate', { date: targetDateStr });
   };
+
+  // Schedule for selected date
+  const scheduleForSelectedDate = reminders.filter((item) => {
+    if (!item.scheduledAt) return false;
+    const d = new Date(item.scheduledAt);
+    return (
+      d.getFullYear() === selectedDate.getFullYear() &&
+      d.getMonth() === selectedDate.getMonth() &&
+      d.getDate() === selectedDate.getDate()
+    );
+  });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader
-        title="Calendar"
-        onBackPress={() => switchTab('Home')}
-        rightAction={
-          <TouchableOpacity onPress={() => navigation.navigate('Reminders')}>
-            <Text style={styles.remindersIcon}>⏰</Text>
-          </TouchableOpacity>
-        }
-      />
+    <View style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Month Navigation */}
-        <View style={styles.monthHeader}>
-          <Text style={styles.monthTitle}>{monthFormatted}</Text>
-          <View style={styles.navButtons}>
-            <TouchableOpacity style={styles.navArrow} onPress={handlePrevMonth}>
-              <Text style={styles.arrowText}>‹</Text>
+      <ScreenHeader title="Calendar" onBackPress={() => switchTab('Home')} />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
+      >
+        {/* Month Selector Bar */}
+        <View style={styles.monthHeaderSection}>
+          <Text style={styles.pageTitle}>Overview</Text>
+
+          <View style={styles.monthSelectorBar}>
+            <TouchableOpacity style={styles.arrowBtn} onPress={handlePrevMonth}>
+              <Text style={styles.arrowIcon}>‹</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.navArrow} onPress={handleNextMonth}>
-              <Text style={styles.arrowText}>›</Text>
+
+            <TouchableOpacity
+              style={styles.monthTitleRow}
+              onPress={() => setIsDatePickerOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.monthText}>{monthFormatted}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.arrowBtn} onPress={handleNextMonth}>
+              <Text style={styles.arrowIcon}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Grid Container */}
-        <View style={styles.gridCard}>
+        {/* Glassmorphic Calendar Card */}
+        <View style={styles.calendarCard}>
+          {/* Weekday Headers */}
           <View style={styles.weekdayRow}>
-            {WEEKDAYS.map((w) => (
-              <Text key={w} style={styles.weekdayText}>
-                {w}
+            {WEEKDAYS.map((day) => (
+              <Text key={day} style={styles.weekdayText}>
+                {day.toUpperCase()}
               </Text>
             ))}
           </View>
 
-          <View style={styles.grid}>{renderCalendarGrid()}</View>
+          {/* Calendar Grid */}
+          <View style={styles.calendarGrid}>
+            {/* Previous Month Trail */}
+            {Array.from({ length: firstDayIndex }).map((_, i) => {
+              const dayNum = prevMonthTotalDays - firstDayIndex + i + 1;
+              return (
+                <View key={`prev-${i}`} style={styles.dayCellDim}>
+                  <Text style={styles.dayTextDim}>{dayNum}</Text>
+                </View>
+              );
+            })}
+
+            {/* Current Month Days */}
+            {Array.from({ length: totalDays }).map((_, i) => {
+              const dayNum = i + 1;
+              const isSelected =
+                selectedDate.getDate() === dayNum &&
+                selectedDate.getMonth() === month &&
+                selectedDate.getFullYear() === year;
+
+              const hasReminder = reminders.some((r) => {
+                if (!r.scheduledAt) return false;
+                const rd = new Date(r.scheduledAt);
+                return rd.getFullYear() === year && rd.getMonth() === month && rd.getDate() === dayNum;
+              });
+
+              return (
+                <TouchableOpacity
+                  key={`day-${dayNum}`}
+                  style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                  onPress={() => handleDatePress(dayNum)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                    {dayNum}
+                  </Text>
+                  {hasReminder && !isSelected ? <View style={styles.eventDot} /> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Schedule Section for Selected Date */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>
+            Schedule for {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </Text>
+
+          {isLoading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : scheduleForSelectedDate.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No events or reminders scheduled for this date.</Text>
+            </View>
+          ) : (
+            <View style={styles.scheduleList}>
+              {scheduleForSelectedDate.map((item) => {
+                const timeStr = item.scheduledAt
+                  ? new Date(item.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : 'All Day';
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.scheduleCard}
+                    onPress={() => navigation.navigate('ReminderDetails', { reminderId: item.id })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.timeCol}>
+                      <Text style={styles.timeText}>{timeStr}</Text>
+                    </View>
+
+                    <View style={styles.cardDivider} />
+
+                    <View style={styles.scheduleBody}>
+                      <Text style={styles.scheduleTitle}>{item.title}</Text>
+                      <View style={styles.categoryChip}>
+                        <Text style={styles.categoryChipText}>{item.type ? item.type.toUpperCase() : 'EVENT'}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Floating Add Event CTA */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('AddReminder')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+
+      {/* Date Picker Modal for month selection */}
+      <DatePickerModal
+        visible={isDatePickerOpen}
+        initialDate={activeMonthDate.toISOString()}
+        onConfirm={(iso) => {
+          setActiveMonthDate(new Date(iso));
+          setIsDatePickerOpen(false);
+        }}
+        onCancel={() => setIsDatePickerOpen(false)}
+      />
+    </View>
   );
 };
 
@@ -160,93 +265,213 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  remindersIcon: {
-    fontSize: 20,
-  },
-  content: {
+  scrollContent: {
     padding: spacing.lg,
     gap: spacing.lg,
+    paddingBottom: 80,
   },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  monthTitle: {
-    ...typography.display,
-    color: colors.textPrimary,
-  },
-  navButtons: {
-    flexDirection: 'row',
+  monthHeaderSection: {
     gap: spacing.xs,
   },
-  navArrow: {
+  pageTitle: {
+    ...typography.heading1,
+    fontSize: 22,
+    color: colors.onSurface,
+    fontWeight: '800',
+  },
+  monthSelectorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  arrowBtn: {
     width: 36,
     height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    ...elevation.small,
   },
-  arrowText: {
-    fontSize: 20,
+  arrowIcon: {
+    fontSize: 22,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.onSurfaceVariant,
   },
-  gridCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
+  monthTitleRow: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  monthText: {
+    ...typography.heading4,
+    fontSize: 15,
+    color: colors.primaryContainer,
+    fontWeight: '700',
+  },
+  calendarCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 20,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHighest,
+    gap: spacing.md,
     ...elevation.small,
   },
   weekdayRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: spacing.md,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceContainerHighest,
   },
   weekdayText: {
     ...typography.caption,
-    color: colors.textSecondary,
+    fontSize: 11,
     fontWeight: '700',
-    width: 38,
+    color: colors.outline,
+    width: 36,
     textAlign: 'center',
   },
-  grid: {
+  calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-  },
-  emptyDayCell: {
-    width: '14.28%',
-    height: 48,
+    rowGap: spacing.sm,
   },
   dayCell: {
     width: '14.28%',
-    height: 48,
-    alignItems: 'center',
+    aspectRatio: 1,
     justifyContent: 'center',
-    borderRadius: radius.md,
+    alignItems: 'center',
+    borderRadius: radius.full,
+    position: 'relative',
   },
-  todayCell: {
-    backgroundColor: colors.primary,
+  dayCellSelected: {
+    backgroundColor: colors.primaryContainer,
+    ...elevation.small,
+  },
+  dayCellDim: {
+    width: '14.28%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dayText: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
+    ...typography.body,
+    fontSize: 14,
+    color: colors.onSurface,
     fontWeight: '600',
   },
-  todayText: {
-    color: colors.surface,
+  dayTextSelected: {
+    color: colors.textLight,
     fontWeight: '800',
   },
+  dayTextDim: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.outlineVariant,
+  },
   eventDot: {
+    position: 'absolute',
+    bottom: 4,
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryContainer,
+  },
+  sectionContainer: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...typography.heading3,
+    fontSize: 17,
+    color: colors.onSurface,
+    fontWeight: '700',
+  },
+  scheduleList: {
+    gap: spacing.sm,
+  },
+  scheduleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 14,
+    padding: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primaryContainer,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHighest,
+    ...elevation.small,
+  },
+  timeCol: {
+    minWidth: 64,
+  },
+  timeText: {
+    ...typography.heading4,
+    fontSize: 14,
+    color: colors.onSurface,
+    fontWeight: '700',
+  },
+  cardDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.surfaceContainerHighest,
+    marginHorizontal: spacing.md,
+  },
+  scheduleBody: {
+    flex: 1,
+    gap: 2,
+  },
+  scheduleTitle: {
+    ...typography.heading4,
+    fontSize: 15,
+    color: colors.onSurface,
+    fontWeight: '700',
+  },
+  categoryChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     marginTop: 2,
   },
-  dotPlaceholder: {
-    height: 6,
+  categoryChipText: {
+    ...typography.caption,
+    fontSize: 10,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  emptyCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 14,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHighest,
+  },
+  emptyText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.outline,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...elevation.large,
+  },
+  fabText: {
+    color: colors.surface,
+    fontSize: 32,
+    fontWeight: '400',
+    marginTop: -3,
   },
 });

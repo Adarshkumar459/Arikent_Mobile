@@ -7,17 +7,15 @@ import {
   TouchableOpacity,
   RefreshControl,
   SafeAreaView,
-  Alert,
+  StatusBar,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ExpensesStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
-import { CategoryChip } from '../../components/chips/CategoryChip';
 import { ExpenseCard } from '../../components/cards/ExpenseCard';
 import { ExpenseRepository } from '../../repositories/ExpenseRepository';
-import { ExpenseItem, MonthlyExpenseSummaryData, ExpenseCategory, ExpenseType } from '../../services/api/expenseApi';
-import { ExpenseOptionsSheet } from '../../components/sheets/ExpenseOptionsSheet';
+import { ExpenseItem, MonthlyExpenseSummaryData } from '../../services/api/expenseApi';
 import { ExpenseLoadingScreen } from './ExpenseLoadingScreen';
 import { ExpenseEmptyScreen } from './ExpenseEmptyScreen';
 import { ExpenseErrorScreen } from './ExpenseErrorScreen';
@@ -25,45 +23,30 @@ import { useTabNav } from '../../context/TabContext';
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, 'ExpenseList'>;
 
-const CATEGORIES: Array<{ label: string; value?: ExpenseCategory }> = [
-  { label: 'All' },
-  { label: 'Food', value: 'food' },
-  { label: 'Travel', value: 'travel' },
-  { label: 'Bills', value: 'bills' },
-  { label: 'Shopping', value: 'shopping' },
-  { label: 'Health', value: 'health' },
-  { label: 'Education', value: 'education' },
-  { label: 'Other', value: 'other' },
-];
-
-export const ExpensesScreen: React.FC<Props> = ({ route, navigation }) => {
+export const ExpensesScreen: React.FC<Props> = ({ navigation }) => {
   const { switchTab } = useTabNav();
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [summary, setSummary] = useState<MonthlyExpenseSummaryData | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | undefined>(undefined);
-  const [selectedType, setSelectedType] = useState<ExpenseType | undefined>(undefined);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Selected item for options sheet
-  const [activeExpense, setActiveExpense] = useState<ExpenseItem | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  const fetchExpenses = async (showLoading = true) => {
+  const fetchExpenseData = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [res, summaryData] = await Promise.all([
-        ExpenseRepository.getExpenses({
-          category: selectedCategory,
-          type: selectedType,
-        }),
+      const [listRes, summaryRes] = await Promise.allSettled([
+        ExpenseRepository.getExpenses(),
         ExpenseRepository.getMonthlySummary(),
       ]);
-      setExpenses(res.items);
-      setSummary(summaryData);
+
+      if (listRes.status === 'fulfilled') {
+        setExpenses(listRes.value.items);
+      }
+      if (summaryRes.status === 'fulfilled') {
+        setSummary(summaryRes.value);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to fetch expenses');
     } finally {
@@ -74,168 +57,118 @@ export const ExpensesScreen: React.FC<Props> = ({ route, navigation }) => {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchExpenses(expenses.length === 0);
+      fetchExpenseData(expenses.length === 0);
     });
     return unsubscribe;
-  }, [navigation, selectedCategory, selectedType]);
+  }, [navigation]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    fetchExpenses(false);
-  }, [selectedCategory, selectedType]);
+    fetchExpenseData(false);
+  }, []);
 
-  const handleOpenSheet = (item: ExpenseItem) => {
-    setActiveExpense(item);
-    setIsSheetOpen(true);
-  };
-
-  const handleDeleteActiveExpense = async () => {
-    if (!activeExpense) return;
-    try {
-      await ExpenseRepository.deleteExpense(activeExpense.id);
-      setIsSheetOpen(false);
-      fetchExpenses(false);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete transaction');
-    }
-  };
-
-  const handleDuplicateActiveExpense = async () => {
-    if (!activeExpense) return;
-    try {
-      await ExpenseRepository.createExpense({
-        type: activeExpense.type,
-        amount: activeExpense.amount,
-        category: activeExpense.category,
-        paymentMethod: activeExpense.paymentMethod,
-        date: activeExpense.date,
-        note: activeExpense.note ? `${activeExpense.note} (Copy)` : 'Copy',
-      });
-      setIsSheetOpen(false);
-      fetchExpenses(false);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to duplicate transaction');
-    }
-  };
+  const totalSpent = summary?.totalExpense ?? expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  const totalCount = summary?.transactionCount ?? expenses.length;
+  const thisMonthSpent = summary?.totalExpense ?? Math.round(totalSpent * 0.5);
 
   if (isLoading && !isRefreshing) {
     return <ExpenseLoadingScreen />;
   }
 
   if (errorMsg && expenses.length === 0) {
-    return <ExpenseErrorScreen errorMessage={errorMsg} onRetry={() => fetchExpenses(true)} />;
+    return <ExpenseErrorScreen errorMessage={errorMsg} onRetry={() => fetchExpenseData(true)} />;
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      {/* Screen Header matching Goal & Calendar pages SAME TO SAME */}
       <ScreenHeader
         title="Expenses"
         onBackPress={() => switchTab('Home')}
         rightAction={
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => navigation.navigate('ExpenseAnalytics')}>
-              <Text style={styles.headerIcon}>📈</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate('ExpenseFilter')}>
-              <Text style={styles.headerIcon}>⚙️</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('ExpenseAnalytics')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.headerIconText}>📊</Text>
+          </TouchableOpacity>
         }
       />
 
-      {/* Monthly Summary Card */}
-      {summary ? (
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Total Income</Text>
-              <Text style={[styles.summaryAmount, styles.incomeColor]}>
-                +₹{summary.totalIncome.toLocaleString('en-IN')}
-              </Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Total Expenses</Text>
-              <Text style={[styles.summaryAmount, styles.expenseColor]}>
-                -₹{summary.totalExpense.toLocaleString('en-IN')}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.netRow}>
-            <Text style={styles.netLabel}>Net Savings:</Text>
-            <Text style={[styles.netAmount, summary.balance >= 0 ? styles.incomeColor : styles.expenseColor]}>
-              ₹{summary.balance.toLocaleString('en-IN')}
-            </Text>
-          </View>
-        </View>
-      ) : null}
+      <FlatList
+        data={expenses}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
+        ListHeaderComponent={
+          <View style={styles.headerSection}>
+            {/* Total Spent Summary Card */}
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryTopRow}>
+                <View>
+                  <Text style={styles.summaryCaption}>TOTAL SPENT</Text>
+                  <Text style={styles.summaryAmount}>₹{totalSpent.toLocaleString('en-IN')}</Text>
+                </View>
+                <View style={styles.trendBadge}>
+                  <Text style={styles.trendIcon}>📈</Text>
+                </View>
+              </View>
 
-      {/* Category Filter Pills */}
-      <View style={styles.categoryContainer}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={CATEGORIES}
-          keyExtractor={(item) => item.label}
-          contentContainerStyle={styles.categoryList}
-          renderItem={({ item }) => (
-            <CategoryChip
-              label={item.label}
-              selected={selectedCategory === item.value}
-              onPress={() => setSelectedCategory(item.value)}
-            />
-          )}
-        />
-      </View>
+              <View style={styles.summaryBottomGrid}>
+                <View style={styles.summaryCell}>
+                  <Text style={styles.cellCaption}>This Month</Text>
+                  <Text style={styles.cellValue}>₹{thisMonthSpent.toLocaleString('en-IN')}</Text>
+                </View>
+                <View style={styles.cellDivider} />
+                <View style={styles.summaryCell}>
+                  <Text style={styles.cellCaption}>Number of Expenses</Text>
+                  <Text style={styles.cellValue}>{totalCount}</Text>
+                </View>
+              </View>
+            </View>
 
-      {/* Expenses List */}
-      {expenses.length === 0 ? (
-        <ExpenseEmptyScreen />
-      ) : (
-        <FlatList
-          data={expenses}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-          }
-          renderItem={({ item }) => (
+            {/* Add Expense Full-Width CTA */}
             <TouchableOpacity
+              style={styles.addCtaButton}
+              onPress={() => navigation.navigate('AddExpense')}
               activeOpacity={0.9}
-              onPress={() => navigation.navigate('ExpenseDetails', { expenseId: item.id })}
-              onLongPress={() => handleOpenSheet(item)}
             >
-              <ExpenseCard
-                category={item.category}
-                amount={item.amount}
-                date={item.date ? new Date(item.date).toLocaleDateString() : undefined}
-                paymentMethod={item.paymentMethod}
-                type={item.type}
-              />
+              <Text style={styles.addCtaText}>+ Add Expense</Text>
             </TouchableOpacity>
-          )}
-        />
-      )}
 
-      {/* Floating Add Expense CTA */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('AddExpense')}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
-
-      {/* Contextual Action Sheet */}
-      <ExpenseOptionsSheet
-        visible={isSheetOpen}
-        onClose={() => setIsSheetOpen(false)}
-        onEdit={() => {
-          setIsSheetOpen(false);
-          if (activeExpense) navigation.navigate('EditExpense', { expenseId: activeExpense.id });
-        }}
-        onDuplicate={handleDuplicateActiveExpense}
-        onDelete={handleDeleteActiveExpense}
+            {/* Recent List Header Row */}
+            <View style={styles.listHeaderRow}>
+              <Text style={styles.sectionTitle}>Recent</Text>
+              <TouchableOpacity
+                style={styles.filterButton}
+                onPress={() => navigation.navigate('ExpenseFilter')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterIcon}>⚙️</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={<ExpenseEmptyScreen />}
+        renderItem={({ item }) => (
+          <View style={styles.cardWrapper}>
+            <ExpenseCard
+              title={item.note || item.category.toUpperCase()}
+              category={item.category}
+              amount={item.amount}
+              type={item.type}
+              date={item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : undefined}
+              paymentMethod={item.paymentMethod}
+              notes={item.note}
+              onPress={() => navigation.navigate('ExpenseDetails', { expenseId: item.id })}
+            />
+          </View>
+        )}
       />
     </SafeAreaView>
   );
@@ -246,98 +179,116 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
+  headerIconButton: {
+    padding: 4,
   },
-  headerIcon: {
+  headerIconText: {
     fontSize: 20,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  headerSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.lg,
+  },
   summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-    ...elevation.small,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: 24,
+    padding: spacing.lg,
+    ...elevation.large,
+    overflow: 'hidden',
   },
-  summaryRow: {
+  summaryTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
   },
-  summaryBox: {
-    alignItems: 'center',
-  },
-  summaryLabel: {
+  summaryCaption: {
     ...typography.caption,
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.onPrimaryContainer + 'CC',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   summaryAmount: {
-    ...typography.heading3,
-    fontWeight: '700',
+    ...typography.display,
+    fontSize: 34,
+    color: colors.textLight,
+  },
+  trendBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    borderColor: colors.textLight + '30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trendIcon: {
+    fontSize: 18,
+  },
+  summaryBottomGrid: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: colors.textLight + '30',
+    paddingTop: spacing.md,
+  },
+  summaryCell: {
+    flex: 1,
+  },
+  cellCaption: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.onPrimaryContainer + 'D9',
+  },
+  cellValue: {
+    ...typography.heading4,
+    fontSize: 16,
+    color: colors.textLight,
     marginTop: 2,
   },
-  summaryDivider: {
+  cellDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: colors.border,
+    height: '100%',
+    backgroundColor: colors.textLight + '30',
+    marginHorizontal: spacing.sm,
   },
-  netRow: {
+  addCtaButton: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: colors.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...elevation.medium,
+  },
+  addCtaText: {
+    ...typography.heading3,
+    fontSize: 16,
+    color: colors.textLight,
+  },
+  listHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    justifyContent: 'space-between',
   },
-  netLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
+  sectionTitle: {
+    ...typography.heading3,
+    fontSize: 20,
+    color: colors.onSurface,
   },
-  netAmount: {
-    ...typography.bodySmall,
-    fontWeight: '700',
+  filterButton: {
+    padding: 6,
   },
-  incomeColor: {
-    color: colors.success,
+  filterIcon: {
+    fontSize: 18,
   },
-  expenseColor: {
-    color: colors.error,
-  },
-  categoryContainer: {
-    marginBottom: spacing.sm,
-  },
-  categoryList: {
+  cardWrapper: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 80,
-    gap: spacing.md,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: radius.full,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...elevation.large,
-  },
-  fabText: {
-    color: colors.surface,
-    fontSize: 32,
-    fontWeight: '400',
-    marginTop: -3,
+    marginBottom: spacing.md,
   },
 });

@@ -4,8 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
+  StatusBar,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -13,29 +13,25 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { GoalsStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
-import { PrimaryButton, SecondaryButton, DangerButton } from '../../components/buttons';
-import { StatusChip, CategoryChip } from '../../components/chips';
-import { ProgressBar } from '../../components/progress/ProgressBar';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalItem } from '../../services/api/goalApi';
-import { GoalOptionsSheet } from '../../components/sheets/GoalOptionsSheet';
 
 type Props = NativeStackScreenProps<GoalsStackParamList, 'GoalDetails'>;
 
 export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const goalId = route.params?.goalId;
+  const { goalId } = route.params || {};
   const [goal, setGoal] = useState<GoalItem | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
-  const fetchGoal = async () => {
+  const fetchGoalDetails = async () => {
     if (!goalId) return;
     setIsLoading(true);
     try {
       const data = await GoalRepository.getGoalById(goalId);
       setGoal(data);
-    } catch (err) {
-      setGoal(null);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to fetch goal details');
     } finally {
       setIsLoading(false);
     }
@@ -43,146 +39,204 @@ export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchGoal();
+      fetchGoalDetails();
     });
     return unsubscribe;
   }, [navigation, goalId]);
 
-  const handleDelete = () => {
-    if (!goal) return;
-    Alert.alert('Delete Goal', 'Are you sure you want to delete this goal?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await GoalRepository.deleteGoal(goal.id);
-            navigation.goBack();
-          } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to delete goal');
-          }
-        },
-      },
-    ]);
+  const handleToggleMilestone = async (milestoneId: string, currentCompleted: boolean) => {
+    if (!goalId || !goal) return;
+    try {
+      const updated = await GoalRepository.toggleMilestone(goalId, milestoneId, !currentCompleted);
+      setGoal(updated);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update milestone');
+    }
   };
 
-  if (isLoading) {
+  const handleDeleteGoal = async () => {
+    if (!goalId) return;
+    Alert.alert(
+      'Delete Goal',
+      'Are you sure you want to delete this goal?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await GoalRepository.deleteGoal(goalId);
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete goal');
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (isLoading || !goal) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Goal Details" onBackPress={() => navigation.goBack()} />
-        <View style={styles.centered}>
+      <View style={styles.safeArea}>
+        <ScreenHeader title="Goal Details" />
+        <View style={styles.loadingWrapper}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  if (!goal) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScreenHeader title="Goal Details" onBackPress={() => navigation.goBack()} />
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>Goal not found</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const progressPct =
+    goal.targetValue > 0 ? Math.min(Math.round((goal.currentValue / goal.targetValue) * 100), 100) : 0;
 
-  const rawPercent = goal.targetValue > 0 ? (goal.currentValue / goal.targetValue) * 100 : 0;
-  const clampedPercent = Math.min(Math.max(Math.round(rawPercent), 0), 100);
-  const remaining = Math.max(goal.targetValue - goal.currentValue, 0);
+  const formattedDeadline = goal.deadline
+    ? new Date(goal.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'No Deadline';
+
+  const completedMilestones = (goal.milestones || []).filter((m) => m.completed).length;
+  const totalMilestones = (goal.milestones || []).length;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
       <ScreenHeader
         title="Goal Details"
-        onBackPress={() => navigation.goBack()}
         rightAction={
-          <TouchableOpacity onPress={() => setIsOptionsOpen(true)}>
-            <Text style={styles.optionsIcon}>•••</Text>
+          <TouchableOpacity onPress={handleDeleteGoal} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={{ fontSize: 18 }}>🗑️</Text>
           </TouchableOpacity>
         }
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <View style={styles.badgeRow}>
-            <StatusChip status={goal.status as any} />
-            <CategoryChip label={goal.category} selected />
-          </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Main Card with Progress Ring */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroAccentLine} />
+          <Text style={styles.goalTitle}>{goal.title}</Text>
+          {goal.description ? <Text style={styles.goalDescription}>{goal.description}</Text> : null}
 
-          <Text style={styles.title}>{goal.title}</Text>
-
-          {goal.description ? (
-            <Text style={styles.description}>{goal.description}</Text>
-          ) : (
-            <Text style={styles.noDesc}>No description provided.</Text>
-          )}
-
-          <View style={styles.progressBox}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>PROGRESS ({clampedPercent}%)</Text>
-              <Text style={styles.progressValues}>
-                {goal.currentValue} / {goal.targetValue} {goal.unit}
+          {/* Large Ring Chart */}
+          <View style={styles.chartWrapper}>
+            <View style={styles.chartRing}>
+              <Text style={styles.chartPctText}>{progressPct}%</Text>
+              <Text style={styles.chartValueText}>
+                {goal.currentValue} / {goal.targetValue} {goal.unit || ''}
               </Text>
             </View>
-            <ProgressBar progress={clampedPercent} />
-            <Text style={styles.remainingText}>Remaining: {remaining} {goal.unit}</Text>
+          </View>
+        </View>
+
+        {/* Chips Section */}
+        <View style={styles.chipsRow}>
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>📚 {goal.category ? goal.category.toUpperCase() : 'GENERAL'}</Text>
+          </View>
+          <View style={[styles.chip, { backgroundColor: colors.primaryLight }]}>
+            <Text style={[styles.chipText, { color: colors.primary }]}>⚡ {goal.status.toUpperCase()}</Text>
+          </View>
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>📅 Due {formattedDeadline}</Text>
+          </View>
+        </View>
+
+        {/* Milestones Section */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Milestones</Text>
+            {totalMilestones > 0 ? (
+              <View style={styles.badgePill}>
+                <Text style={styles.badgePillText}>
+                  {completedMilestones}/{totalMilestones} Completed
+                </Text>
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.metaDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Deadline:</Text>
-            <Text style={styles.metaValue}>
-              {goal.deadline ? new Date(goal.deadline).toLocaleDateString() : 'None'}
-            </Text>
-          </View>
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Created:</Text>
-            <Text style={styles.metaValue}>{new Date(goal.createdAt).toLocaleDateString()}</Text>
-          </View>
-
-          {/* History Timeline */}
-          {goal.history && goal.history.length > 0 ? (
-            <View style={styles.historySection}>
-              <Text style={styles.historyTitle}>PROGRESS HISTORY</Text>
-              {goal.history.slice(-3).map((h, idx) => (
-                <View key={h.id || idx} style={styles.historyItem}>
-                  <Text style={styles.historyValue}>
-                    {h.value} {goal.unit} ({h.progress}%)
+          {totalMilestones === 0 ? (
+            <Text style={styles.emptyText}>No milestones set for this goal.</Text>
+          ) : (
+            <View style={styles.milestoneList}>
+              {(goal.milestones || []).map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.milestoneItem}
+                  onPress={() => handleToggleMilestone(item.id, item.completed)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.checkSymbol, item.completed && styles.checkSymbolDone]}>
+                    {item.completed ? '✓' : '○'}
                   </Text>
-                  {h.note ? <Text style={styles.historyNote}>{h.note}</Text> : null}
-                  <Text style={styles.historyDate}>{new Date(h.recordedAt).toLocaleDateString()}</Text>
+                  <Text style={[styles.milestoneTitle, item.completed && styles.milestoneTitleDone]}>
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Progress History Timeline */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Progress History</Text>
+          {(goal.history || []).length === 0 ? (
+            <Text style={styles.emptyText}>No progress recorded yet.</Text>
+          ) : (
+            <View style={styles.historyTimeline}>
+              {(goal.history || []).map((h, i) => (
+                <View key={h.id || i} style={styles.historyItem}>
+                  <View style={styles.historyDot} />
+                  <View style={styles.historyContent}>
+                    <View style={styles.historyHeader}>
+                      <Text style={styles.historyValue}>
+                        {h.value} {goal.unit || ''}
+                      </Text>
+                      <Text style={styles.historyDate}>
+                        {new Date(h.recordedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                    {h.note ? <Text style={styles.historyNote}>{h.note}</Text> : null}
+                  </View>
                 </View>
               ))}
             </View>
-          ) : null}
-        </View>
-
-        <View style={styles.actions}>
-          <PrimaryButton
-            title="Update Progress"
-            onPress={() => navigation.navigate('UpdateGoalProgress', { goalId: goal.id })}
-          />
-          <SecondaryButton
-            title="Edit Goal"
-            onPress={() => navigation.navigate('EditGoal', { goalId: goal.id })}
-          />
-          <DangerButton title="Delete Goal" onPress={handleDelete} />
+          )}
         </View>
       </ScrollView>
 
-      <GoalOptionsSheet
-        visible={isOptionsOpen}
-        onClose={() => setIsOptionsOpen(false)}
-        onEdit={() => navigation.navigate('EditGoal', { goalId: goal.id })}
-        onUpdateProgress={() => navigation.navigate('UpdateGoalProgress', { goalId: goal.id })}
-        onDelete={handleDelete}
-      />
-    </SafeAreaView>
+      {/* Bottom Sticky Action Bar */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.updateProgressBtn}
+          onPress={() => navigation.navigate('UpdateGoalProgress', { goalId: goal.id })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.btnTextLight}>+ Update Progress</Text>
+        </TouchableOpacity>
+
+        <View style={styles.secondaryActionRow}>
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => navigation.navigate('EditGoal', { goalId: goal.id })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnTextPrimary}>✏️ Edit Goal</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteGoal} activeOpacity={0.8}>
+            <Text style={styles.btnTextDanger}>🗑️ Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 };
 
@@ -191,123 +245,250 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centered: {
+  loadingWrapper: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  optionsIcon: {
-    fontSize: 20,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  content: {
+  scrollContent: {
     padding: spacing.lg,
-    gap: spacing.xl,
+    gap: spacing.lg,
+    paddingBottom: 110,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+  heroCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 16,
     padding: spacing.lg,
-    gap: spacing.md,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHighest,
     ...elevation.small,
   },
-  badgeRow: {
+  heroAccentLine: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.primaryContainer,
+  },
+  goalTitle: {
+    ...typography.heading2,
+    fontSize: 20,
+    color: colors.onSurface,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  goalDescription: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    marginBottom: spacing.md,
+  },
+  chartWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: spacing.md,
+  },
+  chartRing: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 9,
+    borderColor: colors.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  chartPctText: {
+    ...typography.display,
+    fontSize: 28,
+    color: colors.primaryContainer,
+    fontWeight: '800',
+  },
+  chartValueText: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.outline,
+    marginTop: 2,
+  },
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  title: {
-    ...typography.display,
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceContainerLow,
   },
-  description: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
+  chipText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.onSurface,
   },
-  noDesc: {
-    ...typography.bodySmall,
-    color: colors.textDisabled,
-    fontStyle: 'italic',
+  sectionCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 16,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHighest,
+    gap: spacing.md,
+    ...elevation.small,
   },
-  progressBox: {
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  progressHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  progressLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  sectionTitle: {
+    ...typography.heading3,
+    fontSize: 17,
+    color: colors.onSurface,
     fontWeight: '700',
   },
-  progressValues: {
+  badgePill: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  badgePillText: {
     ...typography.caption,
+    fontSize: 11,
     color: colors.primary,
     fontWeight: '700',
   },
-  remainingText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    alignSelf: 'flex-end',
+  milestoneList: {
+    gap: spacing.sm,
   },
-  metaDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.xs,
-  },
-  metaRow: {
+  milestoneItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 6,
   },
-  metaLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  checkSymbol: {
+    fontSize: 18,
+    color: colors.outline,
   },
-  metaValue: {
-    ...typography.bodySmall,
-    color: colors.textPrimary,
-    fontWeight: '600',
+  checkSymbolDone: {
+    color: colors.primaryContainer,
+    fontWeight: '800',
   },
-  historySection: {
-    marginTop: spacing.xs,
-    gap: spacing.xs,
+  milestoneTitle: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.onSurface,
   },
-  historyTitle: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+  milestoneTitleDone: {
+    textDecorationLine: 'line-through',
+    color: colors.outline,
+  },
+  historyTimeline: {
+    gap: spacing.md,
+    marginTop: 4,
   },
   historyItem: {
-    backgroundColor: colors.background,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  historyDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primaryContainer,
+    marginTop: 4,
+  },
+  historyContent: {
+    flex: 1,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 10,
+    padding: spacing.md,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   historyValue: {
-    ...typography.bodySmall,
+    ...typography.heading4,
+    fontSize: 15,
+    color: colors.onSurface,
     fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  historyNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
   },
   historyDate: {
     ...typography.caption,
-    color: colors.textDisabled,
-    fontSize: 10,
+    fontSize: 12,
+    color: colors.outline,
   },
-  actions: {
-    gap: spacing.md,
-  },
-  errorText: {
+  historyNote: {
     ...typography.body,
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    marginTop: 4,
+  },
+  emptyText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.outline,
+  },
+  bottomBar: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceContainerHighest,
+    gap: spacing.sm,
+  },
+  updateProgressBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.primaryContainer,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...elevation.small,
+  },
+  secondaryActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  editBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFDAD6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  btnTextLight: {
+    ...typography.heading4,
+    fontSize: 15,
+    color: colors.textLight,
+    fontWeight: '700',
+  },
+  btnTextPrimary: {
+    ...typography.heading4,
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  btnTextDanger: {
+    ...typography.heading4,
+    fontSize: 14,
     color: colors.error,
+    fontWeight: '700',
   },
 });
