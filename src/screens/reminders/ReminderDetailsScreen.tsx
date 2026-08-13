@@ -14,32 +14,33 @@ import { CalendarStackParamList } from '../../navigation/types/navigation.types'
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { PrimaryButton, DangerButton } from '../../components/buttons';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { StatusChip, CategoryChip } from '../../components/chips';
 import { ReminderRepository } from '../../repositories/ReminderRepository';
 import { ReminderItem } from '../../services/api/reminderApi';
 
 type Props = NativeStackScreenProps<CalendarStackParamList, 'ReminderDetails'>;
 
-export const ReminderDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const reminderId = route.params?.reminderId;
+export const ReminderDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { reminderId } = route.params;
   const [reminder, setReminder] = useState<ReminderItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
-  const fetchReminder = async () => {
+  const fetchReminderDetails = async () => {
     if (!reminderId) return;
-    setIsLoading(true);
     try {
       const data = await ReminderRepository.getReminderById(reminderId);
       setReminder(data);
-    } catch (err) {
-      setReminder(null);
+    } catch {
+      // Ignore
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReminder();
+    fetchReminderDetails();
   }, [reminderId]);
 
   const handleToggleComplete = async () => {
@@ -49,23 +50,22 @@ export const ReminderDetailsScreen: React.FC<Props> = ({ route, navigation }) =>
       const updated = await ReminderRepository.updateReminder(reminder.id, { status: newStatus });
       setReminder(updated);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update reminder status');
+      showAlert('Error', err.message || 'Failed to update reminder status', 'error');
     }
   };
 
   const handleDelete = () => {
     if (!reminder) return;
-    Alert.alert('Delete Reminder', 'Are you sure you want to delete this reminder?', [
-      { text: 'Cancel', style: 'cancel' },
+    showAlert('Delete Reminder', 'Are you sure you want to delete this reminder?', 'warning', [
+      { text: 'Cancel', variant: 'secondary' },
       {
         text: 'Delete',
-        style: 'destructive',
         onPress: async () => {
           try {
             await ReminderRepository.deleteReminder(reminder.id);
             navigation.goBack();
           } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to delete reminder');
+            showAlert('Error', err.message || 'Failed to delete reminder', 'error');
           }
         },
       },
@@ -135,6 +135,7 @@ export const ReminderDetailsScreen: React.FC<Props> = ({ route, navigation }) =>
           <DangerButton title="Delete Reminder" onPress={handleDelete} />
         </View>
       </ScrollView>
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

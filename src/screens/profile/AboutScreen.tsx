@@ -1,19 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { Logo } from '../../components/brand/Logo';
-import { OnboardingRepository } from '../../repositories/OnboardingRepository';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'About'>;
 
 export const AboutScreen: React.FC<Props> = ({ navigation }) => {
   const version = '0.1.0';
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const handleLink = (title: string) => {
-    Alert.alert(title, `Opening ${title}...`);
+    showAlert(title, `Opening ${title} details...`, 'info');
   };
 
   return (
@@ -48,23 +49,11 @@ export const AboutScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.linkLabel}>Privacy Policy</Text>
             <Text style={styles.linkArrow}>›</Text>
           </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TouchableOpacity
-            style={styles.linkRow}
-            onPress={async () => {
-              await OnboardingRepository.setOnboardingCompleted(false);
-              (navigation as any).navigate('OrganizeTasks');
-            }}
-          >
-            <Text style={styles.linkLabel}>Replay Onboarding Flow</Text>
-            <Text style={styles.linkArrow}>›</Text>
-          </TouchableOpacity>
         </View>
 
         <Text style={styles.footerText}>© 2026 ARKIENT Inc. All rights reserved.</Text>
       </ScrollView>
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

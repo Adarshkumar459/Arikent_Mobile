@@ -16,6 +16,7 @@ import { HabitItem } from '../../services/api/habitApi';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { EmptyState } from '../../components/feedback/EmptyState';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<any, 'Habits'>;
 
@@ -27,6 +28,7 @@ export const HabitsScreen: React.FC<Props> = ({ navigation }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchHabits = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -59,9 +61,9 @@ export const HabitsScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const res = await HabitRepository.checkInHabit(habit.id);
       setHabits((prev) => prev.map((h) => (h.id === habit.id ? res.habit : h)));
-      Alert.alert('Success 🔥', `Streak increased to ${res.habit.currentStreak} days!`);
+      showAlert('Success 🔥', `Streak increased to ${res.habit.currentStreak} days!`, 'success');
     } catch (err: any) {
-      Alert.alert('Check-in', err.message || 'Already checked in for today!');
+      showAlert('Check-in', err.message || 'Already checked in for today!', 'info');
     } finally {
       setCheckingInId(null);
     }
@@ -173,6 +175,7 @@ export const HabitsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+      <CustomAlertModal />
     </View>
   );
 };

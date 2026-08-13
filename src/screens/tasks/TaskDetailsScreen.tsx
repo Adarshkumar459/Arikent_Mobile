@@ -14,15 +14,17 @@ import { TasksStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { TaskRepository } from '../../repositories/TaskRepository';
-import { TaskItem, TaskStatus } from '../../services/api/taskApi';
+import { TaskItem, TaskPriority, TaskStatus } from '../../services/api/taskApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskDetails'>;
 
-export const TaskDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
+export const TaskDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { taskId } = route.params || {};
   const [task, setTask] = useState<TaskItem | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchTaskDetails = async () => {
     if (!taskId) return;
@@ -31,7 +33,7 @@ export const TaskDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       const data = await TaskRepository.getTaskById(taskId);
       setTask(data);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to fetch task details');
+      showAlert('Error', err.message || 'Failed to fetch task details', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -51,27 +53,27 @@ export const TaskDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       const updated = await TaskRepository.updateTask(taskId, { status: newStatus });
       setTask(updated);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update task status');
+      showAlert('Error', err.message || 'Failed to update task status', 'error');
     }
   };
 
   const handleDeleteTask = async () => {
     if (!taskId) return;
-    Alert.alert(
+    showAlert(
       'Delete Task',
       'Are you sure you want to delete this task?',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', variant: 'secondary' },
         {
           text: 'Delete',
-          style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
             try {
               await TaskRepository.deleteTask(taskId);
               navigation.goBack();
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete task');
+              showAlert('Error', err.message || 'Failed to delete task', 'error');
             } finally {
               setIsDeleting(false);
             }
@@ -90,9 +92,9 @@ export const TaskDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       const updated = await TaskRepository.updateTask(taskId, { dueDate: current.toISOString() });
       setTask(updated);
-      Alert.alert('Task Snoozed', 'Task postponed by 3 hours');
+      showAlert('Task Snoozed', 'Task postponed by 3 hours.', 'info');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to snooze task');
+      showAlert('Error', err.message || 'Failed to snooze task', 'error');
     }
   };
 
@@ -241,6 +243,7 @@ export const TaskDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
+      <CustomAlertModal />
     </View>
   );
 };

@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppLock } from './AppLockContext';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, typography, radius, elevation } from '../theme';
+import { useCustomAlert } from '../components/alerts/CustomAlert';
 
 // ---------------------------------------------------------------------------
 // PIN attempt throttling constants
@@ -282,6 +283,7 @@ export const AppLockScreen: React.FC = () => {
     retryLoadState,
   } = useAppLock();
   const { logout } = useAuth();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
   const insets = useSafeAreaInsets();
 
   const topPad = Math.max(
@@ -331,26 +333,21 @@ export const AppLockScreen: React.FC = () => {
   }, []);
 
   const handleForgotPin = useCallback(() => {
-    Alert.alert(
+    showAlert(
       'Forgot PIN?',
-      'To reset your App Lock PIN, you need to log in to your account again. Your notes and data are safe.',
+      'To bypass the lock screen, please log in to your account again with your password.',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', variant: 'secondary' },
         {
           text: 'Log In Again',
-          style: 'destructive',
           onPress: async () => {
-            try {
-              await disableAppLockRef.current();
-            } catch {
-              // Ignore
-            }
             await logout();
           },
         },
       ],
     );
-  }, [logout]);
+  }, [logout, showAlert]);
 
   if (lockState === 'ERROR') {
     return (
@@ -378,14 +375,14 @@ export const AppLockScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.dangerBtn}
             onPress={() =>
-              Alert.alert(
+              showAlert(
                 'Reset App Lock',
                 'This will log you out and disable App Lock. Your account data is not affected.',
+                'warning',
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Cancel', variant: 'secondary' },
                   {
                     text: 'Log Out & Reset',
-                    style: 'destructive',
                     onPress: logout,
                   },
                 ],
@@ -398,6 +395,7 @@ export const AppLockScreen: React.FC = () => {
             <Text style={styles.dangerBtnText}>Log Out & Reset</Text>
           </TouchableOpacity>
         </View>
+        <CustomAlertModal />
       </SafeAreaView>
     );
   }
@@ -483,6 +481,7 @@ export const AppLockScreen: React.FC = () => {
           </View>
         )}
       </View>
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

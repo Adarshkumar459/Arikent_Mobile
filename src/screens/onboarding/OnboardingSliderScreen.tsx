@@ -73,7 +73,7 @@ export const OnboardingSliderScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleFinishOnboarding = async () => {
     await OnboardingRepository.setOnboardingCompleted(true);
-    navigation.navigate('Login' as never);
+    navigation.navigate('Register' as never);
   };
 
   const handleNext = () => {

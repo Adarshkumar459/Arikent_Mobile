@@ -16,6 +16,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { ExpenseRepository } from '../../repositories/ExpenseRepository';
 import { ExpenseCategory, PaymentMethod } from '../../services/api/expenseApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { DatePickerModal } from '../../components/modals/DatePickerModal';
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, 'AddExpense'>;
@@ -48,17 +49,17 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
   const [amount, setAmount] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const handleSave = async () => {
     const numericAmount = parseFloat(amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount');
+      showAlert('Validation Error', 'Please enter a valid expense amount', 'warning');
       return;
     }
 
@@ -78,7 +79,7 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
       });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save expense');
+      showAlert('Error', err.message || 'Failed to save expense', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -216,6 +217,7 @@ export const AddExpenseScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onCancel={() => setIsDatePickerOpen(false)}
       />
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

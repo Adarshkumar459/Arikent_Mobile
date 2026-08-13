@@ -17,6 +17,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { ExpenseRepository } from '../../repositories/ExpenseRepository';
 import { ExpenseItem, ExpenseCategory, PaymentMethod } from '../../services/api/expenseApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { ConfirmationModal } from '../../components/modals/ConfirmationModal';
 import { DatePickerModal } from '../../components/modals/DatePickerModal';
 
@@ -52,27 +53,29 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
   const [amount, setAmount] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('food');
-  const [date, setDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   useEffect(() => {
     const loadExpense = async () => {
       try {
         const item: ExpenseItem = await ExpenseRepository.getExpenseById(expenseId);
-        setAmount(item.amount.toString());
+        setAmount(String(item.amount));
         setCategory(item.category || 'food');
-        setDate(item.date ? item.date.split('T')[0] : new Date().toISOString().split('T')[0]);
+        if (item.date) setDate(item.date.split('T')[0]);
         setPaymentMethod(item.paymentMethod || 'upi');
         setNotes(item.note || '');
       } catch (err: any) {
-        Alert.alert('Error', err.message || 'Failed to load expense details');
-        navigation.goBack();
+        showAlert('Error', err.message || 'Failed to load expense details', 'error', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
       } finally {
         setIsLoading(false);
       }
@@ -83,7 +86,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleSave = async () => {
     const numericAmount = parseFloat(amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount');
+      showAlert('Validation Error', 'Please enter a valid expense amount', 'warning');
       return;
     }
 
@@ -102,7 +105,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
       });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update expense');
+      showAlert('Error', err.message || 'Failed to update expense', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -114,7 +117,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
       setIsDeleteModalVisible(false);
       navigation.navigate('ExpenseList');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete expense');
+      showAlert('Error', err.message || 'Failed to delete expense', 'error');
     }
   };
 
@@ -279,6 +282,7 @@ export const EditExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
         }}
         onCancel={() => setIsDatePickerOpen(false)}
       />
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

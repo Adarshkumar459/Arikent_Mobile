@@ -27,6 +27,7 @@ import { ProfileStackParamList } from '../navigation/types/navigation.types';
 import { useAppLock } from './AppLockContext';
 import { colors, spacing, typography, radius } from '../theme';
 import { ScreenHeader } from '../components/navigation/ScreenHeader';
+import { useCustomAlert } from '../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'AppLockSetup'>;
 
@@ -41,6 +42,7 @@ const NUMPAD_ROWS: string[][] = [
 
 export const PinSetupScreen: React.FC<Props> = ({ navigation, route }) => {
   const { enableAppLockWithPin, changePin, verifyPin } = useAppLock();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
   const mode = route.params?.mode || 'setup';
 
   const [step, setStep] = useState<SetupStep>(mode === 'change' ? 'current' : 'enter');
@@ -116,8 +118,9 @@ export const PinSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           try {
             if (mode === 'change') {
               await changePin(currentPinInput, newPin);
-              Alert.alert('Success', 'Your PIN has been changed.');
-              navigation.goBack();
+              showAlert('Success', 'Your PIN has been changed successfully.', 'success', [
+                { text: 'OK', onPress: () => navigation.goBack() },
+              ]);
             } else {
               await enableAppLockWithPin(newPin);
               // Navigate directly to AppLockSettingsScreen after setup (#3, #4)
@@ -257,6 +260,7 @@ export const PinSetupScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         )}
       </View>
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

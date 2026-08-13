@@ -17,6 +17,7 @@ import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, radius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { sanitize10Digits, toFullIndianPhone, isValid10DigitMobile } from '../../utils/phoneUtils';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'PersonalInformation'>;
 
@@ -151,6 +152,7 @@ const inputStyles = StyleSheet.create({
 
 export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
   const { user, updateProfile } = useAuth();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
   const [name, setName] = useState(user?.name || '');
   const [email] = useState(user?.email || '');
   const [phoneDigits, setPhoneDigits] = useState(sanitize10Digits(user?.phone));
@@ -185,7 +187,7 @@ export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
         phone: cleanDigits.length === 10 ? toFullIndianPhone(cleanDigits) : undefined,
       });
       setIsLoading(false);
-      Alert.alert('Success', 'Personal information updated successfully', [
+      showAlert('Success', 'Personal information updated successfully', 'success', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
@@ -292,6 +294,7 @@ export const PersonalInformationScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <CustomAlertModal />
     </View>
   );
 };

@@ -15,14 +15,16 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalItem } from '../../services/api/goalApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<GoalsStackParamList, 'GoalDetails'>;
 
-export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
+export const GoalDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { goalId } = route.params || {};
   const [goal, setGoal] = useState<GoalItem | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchGoalDetails = async () => {
     if (!goalId) return;
@@ -31,7 +33,7 @@ export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       const data = await GoalRepository.getGoalById(goalId);
       setGoal(data);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to fetch goal details');
+      showAlert('Error', err.message || 'Failed to fetch goal details', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -50,27 +52,27 @@ export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       const updated = await GoalRepository.toggleMilestone(goalId, milestoneId, !currentCompleted);
       setGoal(updated);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update milestone');
+      showAlert('Error', err.message || 'Failed to update milestone', 'error');
     }
   };
 
   const handleDeleteGoal = async () => {
     if (!goalId) return;
-    Alert.alert(
+    showAlert(
       'Delete Goal',
       'Are you sure you want to delete this goal?',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', variant: 'secondary' },
         {
           text: 'Delete',
-          style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
             try {
               await GoalRepository.deleteGoal(goalId);
               navigation.goBack();
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete goal');
+              showAlert('Error', err.message || 'Failed to delete goal', 'error');
             } finally {
               setIsDeleting(false);
             }
@@ -236,6 +238,7 @@ export const GoalDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+      <CustomAlertModal />
     </View>
   );
 };

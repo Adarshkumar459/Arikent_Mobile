@@ -12,11 +12,13 @@ import {
   ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { GoalsStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalItem, GoalCategory, GoalStatus } from '../../services/api/goalApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { GoalOptionsSheet } from '../../components/sheets/GoalOptionsSheet';
 import { GoalLoadingScreen } from './GoalLoadingScreen';
 import { GoalEmptyScreen } from './GoalEmptyScreen';
@@ -44,8 +46,9 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
   // Selected goal for options sheet
   const [activeGoal, setActiveGoal] = useState<GoalItem | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
-  const fetchGoals = async (showLoading = true) => {
+  const fetchGoals = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     setErrorMsg(null);
     try {
@@ -57,19 +60,18 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       fetchGoals(goals.length === 0);
-    });
-    return unsubscribe;
-  }, [navigation]);
+    }, [fetchGoals])
+  );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchGoals(false);
-  }, []);
+  }, [fetchGoals]);
 
   const handleOpenSheet = (item: GoalItem) => {
     setActiveGoal(item);
@@ -83,7 +85,7 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
       setIsSheetOpen(false);
       fetchGoals(false);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete goal');
+      showAlert('Error', err.message || 'Failed to delete goal', 'error');
     }
   };
 
@@ -295,6 +297,7 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onDelete={handleDeleteActiveGoal}
       />
+      <CustomAlertModal />
     </View>
   );
 };

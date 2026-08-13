@@ -16,22 +16,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, radius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'ChangePassword'>;
-
-// Password strength levels
-const getStrength = (pwd: string): { level: number; label: string; color: string } => {
-  if (!pwd) return { level: 0, label: '', color: colors.surfaceVariant };
-  let score = 0;
-  if (pwd.length >= 8) score++;
-  if (/[A-Z]/.test(pwd)) score++;
-  if (/[0-9]/.test(pwd)) score++;
-  if (/[^A-Za-z0-9]/.test(pwd)) score++;
-  if (score <= 1) return { level: 1, label: 'Weak', color: colors.error };
-  if (score === 2) return { level: 2, label: 'Fair', color: colors.secondary };
-  if (score === 3) return { level: 3, label: 'Good', color: colors.tertiary };
-  return { level: 4, label: 'Strong', color: '#0A7E5E' };
-};
 
 // Password input row
 const PasswordField: React.FC<{
@@ -111,29 +98,67 @@ const pwStyles = StyleSheet.create({
   },
 });
 
+interface StrengthInfo {
+  level: number;
+  label: string;
+  color: string;
+}
+
+const getStrength = (pwd: string): StrengthInfo => {
+  if (!pwd) return { level: 0, label: '', color: colors.outlineVariant };
+  const hasMinLength = pwd.length >= 8;
+  const hasUppercase = /[A-Z]/.test(pwd);
+  const hasNumber = /[0-9]/.test(pwd);
+  const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
+  const score = [hasMinLength, hasUppercase, hasNumber, hasSpecial].filter(Boolean).length;
+  if (score <= 1) return { level: 1, label: 'Weak', color: '#EF4444' };
+  if (score === 2) return { level: 2, label: 'Fair', color: '#F59E0B' };
+  if (score === 3) return { level: 3, label: 'Good', color: '#3B82F6' };
+  return { level: 4, label: 'Strong', color: '#10B981' };
+};
+
 export const ChangePasswordScreen: React.FC<Props> = ({ navigation }) => {
   const { changePassword } = useAuth();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
   const strength = getStrength(newPassword);
 
-  const handleUpdate = async () => {
+  // Requirements logic
+  const hasMinLength = newPassword.length >= 8;
+  const hasUppercase = /[A-Z]/.test(newPassword);
+  const hasNumber = /[0-9]/.test(newPassword);
+  const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
+
+  const reqScore = [hasMinLength, hasUppercase, hasNumber, hasSpecial].filter(Boolean).length;
+  const isFormValid =
+    currentPassword.length > 0 &&
+    reqScore === 4 &&
+    newPassword === confirmPassword;
+
+  const handleSave = async () => {
     if (!currentPassword) {
-      setErrorMsg('Current password is required');
+      setErrorMsg('Please enter your current password');
       return;
     }
-    if (newPassword.length < 6) {
-      setErrorMsg('New password must be at least 6 characters long');
+    if (reqScore < 4) {
+      setErrorMsg('New password does not meet all security requirements');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setErrorMsg('New password and confirm password do not match');
+      setErrorMsg('New passwords do not match');
       return;
     }
 
@@ -142,7 +167,7 @@ export const ChangePasswordScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await changePassword({ currentPassword, newPassword, confirmPassword });
       setIsLoading(false);
-      Alert.alert('Success', 'Password changed successfully', [
+      showAlert('Success', 'Password changed successfully', 'success', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
@@ -152,18 +177,20 @@ export const ChangePasswordScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSignOutDevices = () => {
-    Alert.alert(
+    showAlert(
       'Sign out of all other devices',
-      'This will log out any other active sessions.',
+      'This will log out any other active sessions across all devices.',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => {} },
+        { text: 'Cancel', variant: 'secondary' },
+        { text: 'Sign Out', onPress: () => {} },
       ]
     );
   };
 
   return (
     <View style={[styles.safeArea, { paddingTop: topPad }]}>
+      <CustomAlertModal />
       {/* Top App Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -276,7 +303,7 @@ export const ChangePasswordScreen: React.FC<Props> = ({ navigation }) => {
           {/* Update Password CTA */}
           <TouchableOpacity
             style={[styles.updateBtn, isLoading && styles.updateBtnLoading]}
-            onPress={handleUpdate}
+            onPress={handleSave}
             disabled={isLoading}
             activeOpacity={0.87}
           >

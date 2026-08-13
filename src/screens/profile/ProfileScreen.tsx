@@ -16,6 +16,7 @@ import { colors, spacing, radius } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { useTabNav } from '../../context/TabContext';
 import { useAppLock } from '../../security/AppLockContext';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Profile'>;
 
@@ -45,12 +46,13 @@ const PREF_MENU: MenuItem[] = [
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const { settings } = useAppLock();
   const { switchTab } = useTabNav();
-  const { settings, lockState } = useAppLock();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
-  const isAppLockOn = settings.enabled && lockState !== 'DISABLED';
+  const isAppLockOn = settings.enabled;
 
   const handleAppLockPress = () => {
     if (settings.pinConfigured) {
@@ -62,11 +64,10 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out of ARKIENT?', [
-      { text: 'Cancel', style: 'cancel' },
+    showAlert('Log Out', 'Are you sure you want to log out of ARKIENT?', 'warning', [
+      { text: 'Cancel', variant: 'secondary' },
       {
         text: 'Log Out',
-        style: 'destructive',
         onPress: async () => { await logout(); },
       },
     ]);
@@ -188,6 +189,7 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={{ height: 16 }} />
       </ScrollView>
+      <CustomAlertModal />
     </View>
   );
 };

@@ -4,7 +4,7 @@ export type AuthStackParamList = {
   Splash: undefined;
   Welcome: undefined;
   Onboarding: undefined;
-  Login: undefined;
+  Login: { email?: string } | undefined;
   Register: undefined;
   ForgotPassword: undefined;
   VerifyOTP: { email?: string; resetToken?: string; otpCode?: string } | undefined;

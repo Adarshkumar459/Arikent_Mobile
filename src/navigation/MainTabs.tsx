@@ -5,6 +5,7 @@ import {
   useNavigationBuilder,
   TabRouter,
   TabActions,
+  getFocusedRouteNameFromRoute,
 } from '@react-navigation/native';
 import { HomeStack } from './stacks/HomeStack';
 import { TasksStack } from './stacks/TasksStack';
@@ -26,6 +27,33 @@ const TABS: TabItem[] = [
   { key: 'CalendarTab', label: 'Calendar', icon: '📅' },
 ];
 
+/**
+ * Root route names of each tab stack where the bottom navigation bar MUST be shown.
+ * On all other nested detail/sub screens, the bottom navigation bar is automatically hidden.
+ */
+const ROOT_TAB_ROUTES: Record<string, string> = {
+  HomeTab: 'Dashboard',
+  TasksTab: 'TaskList',
+  ExpensesTab: 'ExpenseList',
+  GoalsTab: 'GoalList',
+  NotesTab: 'NoteList',
+  CalendarTab: 'Calendar',
+  ProfileTab: 'Profile',
+};
+
+function shouldShowBottomNav(activeRoute: any): boolean {
+  const focusedRouteName = getFocusedRouteNameFromRoute(activeRoute);
+  const expectedRootName = ROOT_TAB_ROUTES[activeRoute.name];
+
+  // If focusedRouteName is undefined, it means navigation is at the stack's initial root screen
+  if (!focusedRouteName || focusedRouteName === expectedRootName) {
+    return true;
+  }
+
+  // Any other route inside a stack means the user is on a detail/sub screen -> hide bottom nav
+  return false;
+}
+
 function TabNavigator({ initialRouteName, children, screenOptions }: any) {
   const { state, navigation, descriptors, NavigationContent } = useNavigationBuilder(TabRouter, {
     children,
@@ -35,6 +63,7 @@ function TabNavigator({ initialRouteName, children, screenOptions }: any) {
 
   const activeRoute = state.routes[state.index];
   const activeTabKey = activeRoute.name;
+  const isTabBarVisible = shouldShowBottomNav(activeRoute);
 
   const handleTabPress = (tabKey: string) => {
     let targetRoute = tabKey;
@@ -77,11 +106,13 @@ function TabNavigator({ initialRouteName, children, screenOptions }: any) {
             })}
           </View>
 
-          <BottomNavigation
-            tabs={TABS}
-            activeTab={activeTabKey}
-            onTabPress={handleTabPress}
-          />
+          {isTabBarVisible && (
+            <BottomNavigation
+              tabs={TABS}
+              activeTab={activeTabKey}
+              onTabPress={handleTabPress}
+            />
+          )}
         </View>
       </NavigationContent>
     </TabContext.Provider>

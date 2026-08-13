@@ -11,8 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { TasksStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { TaskRepository } from '../../repositories/TaskRepository';
 import { TaskItem, TaskCategory, TaskPriority, TaskStatus } from '../../services/api/taskApi';
@@ -39,12 +41,13 @@ export const TaskListScreen: React.FC<Props> = ({ navigation }) => {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   // Selected task for options sheet
   const [activeTask, setActiveTask] = useState<TaskItem | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState<boolean>(false);
 
-  const fetchTasks = async (showLoading = true) => {
+  const fetchTasks = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
       const res = await TaskRepository.getTasks();
@@ -55,19 +58,18 @@ export const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+  useFocusEffect(
+    useCallback(() => {
       fetchTasks(tasks.length === 0);
-    });
-    return unsubscribe;
-  }, [navigation]);
+    }, [fetchTasks, tasks.length])
+  );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchTasks(false);
-  }, []);
+  }, [fetchTasks]);
 
   const handleToggleTaskStatus = async (item: TaskItem) => {
     const newStatus: TaskStatus = item.status === 'completed' ? 'pending' : 'completed';
@@ -75,7 +77,7 @@ export const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       const updated = await TaskRepository.updateTask(item.id, { status: newStatus });
       setTasks((prev) => prev.map((t) => (t.id === item.id ? updated : t)));
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update task status');
+      showAlert('Error', err.message || 'Failed to update task status', 'error');
     }
   };
 
@@ -91,7 +93,7 @@ export const TaskListScreen: React.FC<Props> = ({ navigation }) => {
       setIsSheetOpen(false);
       fetchTasks(false);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete task');
+      showAlert('Error', err.message || 'Failed to delete task', 'error');
     }
   };
 
@@ -308,6 +310,7 @@ export const TaskListScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onDelete={handleDeleteActiveTask}
       />
+      <CustomAlertModal />
     </View>
   );
 };

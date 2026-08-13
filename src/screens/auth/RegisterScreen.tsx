@@ -67,8 +67,13 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     });
   };
 
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+
   const hideAlert = () => {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
+    if (registeredEmail) {
+      navigation.navigate('Login', { email: registeredEmail });
+    }
   };
 
   // Dynamic Password Strength Meter
@@ -144,6 +149,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       setIsLoading(false);
       if (response.data && response.data.success) {
+        setRegisteredEmail(trimmedEmail);
         showAlert(
           'Account Created!',
           'Your account has been created successfully. Please log in to continue.',
@@ -151,7 +157,9 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           [
             {
               text: 'Go to Log In',
-              onPress: () => navigation.navigate('Login'),
+              onPress: () => {
+                navigation.navigate('Login', { email: trimmedEmail });
+              },
             },
           ]
         );

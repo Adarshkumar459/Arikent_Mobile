@@ -7,7 +7,6 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types/navigation.types';
@@ -16,35 +15,37 @@ import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { TextInput } from '../../components/inputs';
 import { DangerButton } from '../../components/buttons';
 import { useAuth } from '../../context/AuthContext';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'DeleteAccount'>;
 
 export const DeleteAccountScreen: React.FC<Props> = () => {
   const { deleteAccount } = useAuth();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
   const [confirmInput, setConfirmInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDelete = () => {
     if (confirmInput.trim().toUpperCase() !== 'DELETE') {
-      Alert.alert('Validation Error', 'Please type DELETE to confirm account removal');
+      showAlert('Validation Error', 'Please type DELETE to confirm account removal.', 'warning');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Final Confirmation',
       'This action cannot be undone. Are you absolutely sure you want to permanently delete your account?',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', variant: 'secondary' },
         {
           text: 'Delete Account',
-          style: 'destructive',
           onPress: async () => {
             setIsLoading(true);
             try {
               await deleteAccount();
             } catch (err: any) {
               setIsLoading(false);
-              Alert.alert('Error', err.message || 'Failed to delete account');
+              showAlert('Error', err.message || 'Failed to delete account', 'error');
             }
           },
         },
@@ -60,33 +61,43 @@ export const DeleteAccountScreen: React.FC<Props> = () => {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.warningCard}>
             <Text style={styles.warningIcon}>⚠️</Text>
-            <Text style={styles.warningTitle}>Permanent Deletion Warning</Text>
+            <Text style={styles.warningTitle}>Warning: Permanent Action</Text>
             <Text style={styles.warningText}>
-              Deleting your account will permanently wipe all your associated data, including tasks, expenses, goals, reminders, and profile settings. This action is IRREVERSIBLE.
+              Deleting your account will permanently remove all your data, including tasks,
+              expenses, goals, and notes. This action cannot be reversed.
             </Text>
           </View>
 
-          <TextInput
-            label="TYPE 'DELETE' TO CONFIRM"
-            placeholder="DELETE"
-            value={confirmInput}
-            onChangeText={setConfirmInput}
-            autoCapitalize="characters"
-          />
+          <View style={styles.formCard}>
+            <Text style={styles.confirmLabel}>
+              Type <Text style={styles.boldText}>DELETE</Text> below to confirm:
+            </Text>
 
-          <View style={styles.actionWrapper}>
+            <TextInput
+              placeholder="DELETE"
+              value={confirmInput}
+              onChangeText={setConfirmInput}
+              autoCapitalize="characters"
+              style={styles.input}
+            />
+
             <DangerButton
-              title="Permanently Delete Account"
+              title="Permanently Delete My Account"
               onPress={handleDelete}
               isLoading={isLoading}
-              disabled={isLoading || confirmInput.trim().toUpperCase() !== 'DELETE'}
+              disabled={confirmInput.trim().toUpperCase() !== 'DELETE' || isLoading}
+              style={styles.deleteBtn}
             />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };
@@ -105,21 +116,21 @@ const styles = StyleSheet.create({
   },
   warningCard: {
     backgroundColor: colors.errorBackground,
-    borderColor: colors.error,
-    borderWidth: 1,
     borderRadius: radius.xl,
     padding: spacing.lg,
     alignItems: 'center',
-    gap: spacing.xs,
-    ...elevation.small,
+    borderWidth: 1,
+    borderColor: colors.error,
   },
   warningIcon: {
-    fontSize: 40,
-    marginBottom: spacing.xs,
+    fontSize: 36,
+    marginBottom: spacing.sm,
   },
   warningTitle: {
-    ...typography.heading3,
+    ...typography.subtitle,
     color: colors.error,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
   },
   warningText: {
     ...typography.bodySmall,
@@ -127,7 +138,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  actionWrapper: {
-    marginTop: spacing.md,
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...elevation.small,
+  },
+  confirmLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: colors.error,
+  },
+  input: {
+    marginTop: spacing.xs,
+  },
+  deleteBtn: {
+    marginTop: spacing.sm,
   },
 });

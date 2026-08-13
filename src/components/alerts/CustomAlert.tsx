@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -113,6 +113,57 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
     </Modal>
   );
 };
+
+export function useCustomAlert() {
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'error' | 'success' | 'warning' | 'info';
+    buttons?: AlertButton[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const showAlert = useCallback((
+    title: string,
+    message: string,
+    type: 'error' | 'success' | 'warning' | 'info' = 'error',
+    buttons?: AlertButton[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      buttons,
+    });
+  }, []);
+
+  const hideAlert = useCallback(() => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const CustomAlertComponent: React.FC = useCallback(() => (
+    <CustomAlert
+      visible={alertConfig.visible}
+      title={alertConfig.title}
+      message={alertConfig.message}
+      type={alertConfig.type}
+      buttons={alertConfig.buttons}
+      onClose={hideAlert}
+    />
+  ), [alertConfig, hideAlert]);
+
+  return {
+    showAlert,
+    hideAlert,
+    CustomAlertModal: CustomAlertComponent,
+    alertConfig,
+  };
+}
 
 const styles = StyleSheet.create({
   overlay: {

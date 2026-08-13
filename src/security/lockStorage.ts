@@ -22,19 +22,31 @@ import { secureStore } from '../services/storage/secureStore';
 import { AppLockSettings, AutoLockTimeout } from './types';
 
 // ---------------------------------------------------------------------------
-// Storage keys (secureStore adds arkient_sec_ prefix automatically)
+// Helper to construct user-scoped storage keys
 // ---------------------------------------------------------------------------
 
-const KEYS = {
+const getKeys = (userId?: string) => {
+  const prefix = userId ? `u_${userId}_` : '';
+  return {
+    ENABLED: `${prefix}lock_enabled`,
+    PIN_CONFIGURED: `${prefix}pin_configured`,
+    BIOMETRIC_ENABLED: `${prefix}biometric_enabled`,
+    TIMEOUT: `${prefix}lock_timeout`,
+    PIN_HASH: `${prefix}pin_hash`,
+    PIN_SALT: `${prefix}pin_salt`,
+    LEGACY_METHOD: `${prefix}lock_method`,
+  };
+};
+
+const LEGACY_UNPREFIXED_KEYS = {
   ENABLED: 'lock_enabled',
   PIN_CONFIGURED: 'pin_configured',
   BIOMETRIC_ENABLED: 'biometric_enabled',
   TIMEOUT: 'lock_timeout',
   PIN_HASH: 'pin_hash',
   PIN_SALT: 'pin_salt',
-  // Legacy key for migration
   LEGACY_METHOD: 'lock_method',
-} as const;
+};
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -55,37 +67,65 @@ const VALID_TIMEOUTS: AutoLockTimeout[] = [0, 60, 300, 900];
 
 export const lockStorage = {
   /**
-   * Read all App Lock settings from SecureStore with automatic legacy migration.
-   *
-   * Returns null  — no settings configured yet.
-   * Returns object — the current settings.
+   * Read user-scoped App Lock settings from SecureStore with automatic legacy migration.
    */
-  async getSettings(): Promise<AppLockSettings | null> {
-    const enabledRaw = await secureStore.getItem(KEYS.ENABLED);
-    let pinConfiguredRaw = await secureStore.getItem(KEYS.PIN_CONFIGURED);
-    let biometricEnabledRaw = await secureStore.getItem(KEYS.BIOMETRIC_ENABLED);
+  async getSettings(userId?: string): Promise<AppLockSettings | null> {
+    const keys = getKeys(userId);
+    let enabledRaw = await secureStore.getItem(keys.ENABLED);
+    let pinConfiguredRaw = await secureStore.getItem(keys.PIN_CONFIGURED);
+    let biometricEnabledRaw = await secureStore.getItem(keys.BIOMETRIC_ENABLED);
 
-    const hash = await secureStore.getItem(KEYS.PIN_HASH);
-    const salt = await secureStore.getItem(KEYS.PIN_SALT);
+    let hash = await secureStore.getItem(keys.PIN_HASH);
+    let salt = await secureStore.getItem(keys.PIN_SALT);
 
-    // ── MIGRATION LOGIC FOR LEGACY INSTALLATIONS (#13) ──────────────────────
+    // ── MIGRATION LOGIC FOR UN-PREFIXED LEGACY KEYS ────────────────────────
+    if (userId && pinConfiguredRaw === null && hash === null) {
+      const legacyHash = await secureStore.getItem(LEGACY_UNPREFIXED_KEYS.PIN_HASH);
+      const legacySalt = await secureStore.getItem(LEGACY_UNPREFIXED_KEYS.PIN_SALT);
+
+      if (legacyHash && legacySalt) {
+        const legacyEnabled = await secureStore.getItem(LEGACY_UNPREFIXED_KEYS.ENABLED);
+        const legacyBiometric = await secureStore.getItem(LEGACY_UNPREFIXED_KEYS.BIOMETRIC_ENABLED);
+        const legacyTimeout = await secureStore.getItem(LEGACY_UNPREFIXED_KEYS.TIMEOUT);
+
+        await secureStore.setItem(keys.ENABLED, legacyEnabled ?? 'false');
+        await secureStore.setItem(keys.PIN_CONFIGURED, 'true');
+        await secureStore.setItem(keys.BIOMETRIC_ENABLED, legacyBiometric ?? 'false');
+        await secureStore.setItem(keys.TIMEOUT, legacyTimeout ?? '0');
+        await secureStore.setItem(keys.PIN_HASH, legacyHash);
+        await secureStore.setItem(keys.PIN_SALT, legacySalt);
+
+        // Remove old un-prefixed keys
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.ENABLED);
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.PIN_CONFIGURED);
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.BIOMETRIC_ENABLED);
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.TIMEOUT);
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.PIN_HASH);
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.PIN_SALT);
+        await secureStore.removeItem(LEGACY_UNPREFIXED_KEYS.LEGACY_METHOD);
+
+        enabledRaw = legacyEnabled;
+        pinConfiguredRaw = 'true';
+        biometricEnabledRaw = legacyBiometric;
+        hash = legacyHash;
+        salt = legacySalt;
+      }
+    }
+
     if (pinConfiguredRaw === null) {
       if (hash && salt) {
-        // Legacy installation detected: pin_hash exists
         pinConfiguredRaw = 'true';
-        const legacyMethod = await secureStore.getItem(KEYS.LEGACY_METHOD);
+        const legacyMethod = await secureStore.getItem(keys.LEGACY_METHOD);
         biometricEnabledRaw = legacyMethod === 'biometric_pin' ? 'true' : 'false';
 
-        // Persist migrated keys
-        await secureStore.setItem(KEYS.PIN_CONFIGURED, pinConfiguredRaw);
-        await secureStore.setItem(KEYS.BIOMETRIC_ENABLED, biometricEnabledRaw);
+        await secureStore.setItem(keys.PIN_CONFIGURED, pinConfiguredRaw);
+        await secureStore.setItem(keys.BIOMETRIC_ENABLED, biometricEnabledRaw);
       } else {
-        // First run: no lock configured
         return null;
       }
     }
 
-    const timeoutRaw = await secureStore.getItem(KEYS.TIMEOUT);
+    const timeoutRaw = await secureStore.getItem(keys.TIMEOUT);
     const parsedTimeout = parseInt(timeoutRaw ?? '0', 10);
     const safeTimeout: AutoLockTimeout = VALID_TIMEOUTS.includes(
       parsedTimeout as AutoLockTimeout,
@@ -102,54 +142,58 @@ export const lockStorage = {
   },
 
   /**
-   * Write App Lock settings to SecureStore.
+   * Write user-scoped App Lock settings to SecureStore.
    */
-  async saveSettings(settings: AppLockSettings): Promise<void> {
-    await secureStore.setItem(KEYS.ENABLED, settings.enabled ? 'true' : 'false');
-    await secureStore.setItem(KEYS.PIN_CONFIGURED, settings.pinConfigured ? 'true' : 'false');
-    await secureStore.setItem(KEYS.BIOMETRIC_ENABLED, settings.biometricEnabled ? 'true' : 'false');
-    await secureStore.setItem(KEYS.TIMEOUT, String(settings.timeout));
+  async saveSettings(settings: AppLockSettings, userId?: string): Promise<void> {
+    const keys = getKeys(userId);
+    await secureStore.setItem(keys.ENABLED, settings.enabled ? 'true' : 'false');
+    await secureStore.setItem(keys.PIN_CONFIGURED, settings.pinConfigured ? 'true' : 'false');
+    await secureStore.setItem(keys.BIOMETRIC_ENABLED, settings.biometricEnabled ? 'true' : 'false');
+    await secureStore.setItem(keys.TIMEOUT, String(settings.timeout));
   },
 
   /**
-   * Read PIN verification material (derived hash + salt).
+   * Read user-scoped PIN verification material (derived hash + salt).
    */
-  async getPinMaterial(): Promise<{ hash: string; salt: string } | null> {
-    const hash = await secureStore.getItem(KEYS.PIN_HASH);
-    const salt = await secureStore.getItem(KEYS.PIN_SALT);
+  async getPinMaterial(userId?: string): Promise<{ hash: string; salt: string } | null> {
+    const keys = getKeys(userId);
+    const hash = await secureStore.getItem(keys.PIN_HASH);
+    const salt = await secureStore.getItem(keys.PIN_SALT);
     if (!hash || !salt) return null;
     return { hash, salt };
   },
 
   /**
-   * Write PIN verification material.
-   * ONLY the derived hash and salt are stored — never the raw PIN.
+   * Write user-scoped PIN verification material.
    */
-  async savePinMaterial(hash: string, salt: string): Promise<void> {
-    await secureStore.setItem(KEYS.PIN_HASH, hash);
-    await secureStore.setItem(KEYS.PIN_SALT, salt);
-    await secureStore.setItem(KEYS.PIN_CONFIGURED, 'true');
+  async savePinMaterial(hash: string, salt: string, userId?: string): Promise<void> {
+    const keys = getKeys(userId);
+    await secureStore.setItem(keys.PIN_HASH, hash);
+    await secureStore.setItem(keys.PIN_SALT, salt);
+    await secureStore.setItem(keys.PIN_CONFIGURED, 'true');
   },
 
   /**
-   * Delete PIN verification material from SecureStore.
+   * Delete user-scoped PIN verification material from SecureStore.
    */
-  async clearPinMaterial(): Promise<void> {
-    await secureStore.removeItem(KEYS.PIN_HASH);
-    await secureStore.removeItem(KEYS.PIN_SALT);
-    await secureStore.removeItem(KEYS.PIN_CONFIGURED);
+  async clearPinMaterial(userId?: string): Promise<void> {
+    const keys = getKeys(userId);
+    await secureStore.removeItem(keys.PIN_HASH);
+    await secureStore.removeItem(keys.PIN_SALT);
+    await secureStore.removeItem(keys.PIN_CONFIGURED);
   },
 
   /**
-   * Delete ALL App Lock data from SecureStore.
+   * Delete ALL user-scoped App Lock data from SecureStore.
    */
-  async clearAll(): Promise<void> {
-    await secureStore.removeItem(KEYS.ENABLED);
-    await secureStore.removeItem(KEYS.PIN_CONFIGURED);
-    await secureStore.removeItem(KEYS.BIOMETRIC_ENABLED);
-    await secureStore.removeItem(KEYS.TIMEOUT);
-    await secureStore.removeItem(KEYS.PIN_HASH);
-    await secureStore.removeItem(KEYS.PIN_SALT);
-    await secureStore.removeItem(KEYS.LEGACY_METHOD);
+  async clearAll(userId?: string): Promise<void> {
+    const keys = getKeys(userId);
+    await secureStore.removeItem(keys.ENABLED);
+    await secureStore.removeItem(keys.PIN_CONFIGURED);
+    await secureStore.removeItem(keys.BIOMETRIC_ENABLED);
+    await secureStore.removeItem(keys.TIMEOUT);
+    await secureStore.removeItem(keys.PIN_HASH);
+    await secureStore.removeItem(keys.PIN_SALT);
+    await secureStore.removeItem(keys.LEGACY_METHOD);
   },
 };

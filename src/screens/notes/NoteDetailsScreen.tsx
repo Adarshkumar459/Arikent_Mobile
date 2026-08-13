@@ -15,22 +15,23 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { NoteRepository } from '../../repositories/NoteRepository';
 import { NoteItem } from '../../services/api/noteApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteDetails'>;
 
-export const NoteDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
+export const NoteDetailsScreen: React.FC<Props> = ({ navigation, route }) => {
   const { noteId } = route.params || {};
   const [note, setNote] = useState<NoteItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchNote = async () => {
     if (!noteId) return;
-    setIsLoading(true);
     try {
       const data = await NoteRepository.getNoteById(noteId);
       setNote(data);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to fetch note');
+      showAlert('Error', err.message || 'Failed to fetch note', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -45,20 +46,20 @@ export const NoteDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleDelete = () => {
     if (!noteId) return;
-    Alert.alert(
+    showAlert(
       'Delete Note',
       'Are you sure you want to delete this note? This cannot be undone.',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', variant: 'secondary' },
         {
           text: 'Delete',
-          style: 'destructive',
           onPress: async () => {
             try {
               await NoteRepository.deleteNote(noteId);
               navigation.goBack();
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete note');
+              showAlert('Error', err.message || 'Failed to delete note', 'error');
             }
           },
         },
@@ -72,7 +73,7 @@ export const NoteDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       const updated = await NoteRepository.togglePin(noteId, !note.isPinned);
       setNote(updated);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to pin note');
+      showAlert('Error', err.message || 'Failed to pin note', 'error');
     }
   };
 
@@ -175,6 +176,7 @@ export const NoteDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       </ScrollView>
+      <CustomAlertModal />
     </View>
   );
 };

@@ -16,6 +16,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { useAppLock } from '../../security/AppLockContext';
 import { useAuth } from '../../context/AuthContext';
@@ -226,6 +227,7 @@ export const AppLockSettingsScreen: React.FC<Props> = ({ navigation }) => {
     disableAppLock,
     unlockWithBiometric,
   } = useAppLock();
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const [showPinVerifyModal, setShowPinVerifyModal] = useState(false);
   const [isBiometricToggling, setIsBiometricToggling] = useState(false);
@@ -242,11 +244,12 @@ export const AppLockSettingsScreen: React.FC<Props> = ({ navigation }) => {
     if (isAppLockEnabled) {
       // Require authentication before disabling
       if (canUseBiometric) {
-        Alert.alert(
+        showAlert(
           'Disable App Lock',
           'Authenticate to disable App Lock.',
+          'warning',
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: 'Cancel', variant: 'secondary' },
             {
               text: 'Use Biometric',
               onPress: async () => {
@@ -271,16 +274,16 @@ export const AppLockSettingsScreen: React.FC<Props> = ({ navigation }) => {
       // Navigate to PIN setup screen
       navigation.navigate('AppLockSetup', { mode: 'setup' });
     }
-  }, [isAppLockEnabled, canUseBiometric, unlockWithBiometric, disableAppLock, navigation]);
+  }, [isAppLockEnabled, canUseBiometric, unlockWithBiometric, disableAppLock, navigation, showAlert]);
 
   const handlePinVerifySuccess = useCallback(async () => {
     setShowPinVerifyModal(false);
     try {
       await disableAppLock();
     } catch {
-      Alert.alert('Error', 'Could not disable App Lock. Please try again.');
+      showAlert('Error', 'Could not disable App Lock. Please try again.', 'error');
     }
-  }, [disableAppLock]);
+  }, [disableAppLock, showAlert]);
 
   const handleBiometricVerify = useCallback(async () => {
     const { enrollmentChanged } = await unlockWithBiometric();
@@ -301,24 +304,24 @@ export const AppLockSettingsScreen: React.FC<Props> = ({ navigation }) => {
       const res = await setBiometricEnabled(targetState);
 
       if (!res.success && res.reason) {
-        Alert.alert('Biometric Setup', res.reason);
+        showAlert('Biometric Setup', res.reason, 'info');
       }
     } finally {
       setIsBiometricToggling(false);
     }
-  }, [isBiometricEnabled, isBiometricToggling, setBiometricEnabled]);
+  }, [isBiometricEnabled, isBiometricToggling, setBiometricEnabled, showAlert]);
 
   // ── Forgot PIN ───────────────────────────────────────────────────────────
 
   const handleForgotPin = useCallback(() => {
-    Alert.alert(
+    showAlert(
       'Forgot PIN?',
       'To reset your App Lock PIN, you need to log in to your account again. Your notes and data are safe.',
+      'warning',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', variant: 'secondary' },
         {
           text: 'Log In Again',
-          style: 'destructive',
           onPress: async () => {
             await disableAppLock();
             await logout();
@@ -326,7 +329,7 @@ export const AppLockSettingsScreen: React.FC<Props> = ({ navigation }) => {
         },
       ],
     );
-  }, [disableAppLock, logout]);
+  }, [disableAppLock, logout, showAlert]);
 
   // Biometric status message
   let biometricMessage = 'Use fingerprint or Face ID for faster unlocking';
@@ -462,6 +465,7 @@ export const AppLockSettingsScreen: React.FC<Props> = ({ navigation }) => {
         canUseBiometric={canUseBiometric}
         onBiometric={handleBiometricVerify}
       />
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

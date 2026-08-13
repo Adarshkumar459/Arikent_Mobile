@@ -16,6 +16,7 @@ import { NotesStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { NoteRepository } from '../../repositories/NoteRepository';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'CreateNote'>;
 
@@ -27,10 +28,11 @@ export const CreateNoteScreen: React.FC<Props> = ({ navigation }) => {
   const [category, setCategory] = useState('Personal');
   const [isPinned, setIsPinned] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Required', 'Please enter a note title');
+      showAlert('Required Field', 'Please enter a note title', 'warning');
       return;
     }
 
@@ -44,7 +46,7 @@ export const CreateNoteScreen: React.FC<Props> = ({ navigation }) => {
       });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create note');
+      showAlert('Error', err.message || 'Failed to create note', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -163,6 +165,7 @@ export const CreateNoteScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </TouchableOpacity>
       </View>
+      <CustomAlertModal />
     </View>
   );
 };

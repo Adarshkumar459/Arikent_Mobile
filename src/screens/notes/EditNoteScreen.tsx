@@ -16,36 +16,34 @@ import { NotesStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { NoteRepository } from '../../repositories/NoteRepository';
-import { NoteItem } from '../../services/api/noteApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'EditNote'>;
 
 const CATEGORIES = ['Personal', 'Work', 'Ideas', 'Important', 'Other'];
 
-export const EditNoteScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { noteId } = route.params || {};
+export const EditNoteScreen: React.FC<Props> = ({ navigation, route }) => {
+  const { noteId } = route.params;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('Personal');
+  const [tagsText, setTagsText] = useState('');
   const [isPinned, setIsPinned] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchNote = async () => {
     if (!noteId) return;
-    setIsLoading(true);
     try {
       const data = await NoteRepository.getNoteById(noteId);
       setTitle(data.title);
       setContent(data.content);
-      setCategory(
-        data.category
-          ? data.category.charAt(0).toUpperCase() + data.category.slice(1)
-          : 'Personal'
-      );
+      setCategory(data.category ? data.category.charAt(0).toUpperCase() + data.category.slice(1) : 'Personal');
+      setTagsText(data.tags ? data.tags.join(', ') : '');
       setIsPinned(data.isPinned);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to fetch note');
+      showAlert('Error', err.message || 'Failed to fetch note', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +55,7 @@ export const EditNoteScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleSave = async () => {
     if (!title.trim() || !noteId) {
-      Alert.alert('Required', 'Please enter a note title');
+      showAlert('Required Field', 'Please enter a note title', 'warning');
       return;
     }
 
@@ -71,7 +69,7 @@ export const EditNoteScreen: React.FC<Props> = ({ route, navigation }) => {
       });
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update note');
+      showAlert('Error', err.message || 'Failed to update note', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -192,6 +190,7 @@ export const EditNoteScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
         </TouchableOpacity>
       </View>
+      <CustomAlertModal />
     </View>
   );
 };

@@ -8,20 +8,21 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { Button } from '../../components/buttons/Button';
 import { Loading } from '../../components/feedback/Loading';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<any, 'HabitDetails'>;
 
 export const HabitDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { habitId } = (route.params || {}) as any;
+  const habitId = route.params?.habitId;
   const insets = useSafeAreaInsets();
   const [habit, setHabit] = useState<HabitItem | null>(null);
   const [stats, setStats] = useState<HabitStatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const loadData = async () => {
     if (!habitId) return;
-    setIsLoading(true);
     try {
       const [h, s] = await Promise.all([
         HabitRepository.getHabitById(habitId),
@@ -30,7 +31,7 @@ export const HabitDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       setHabit(h);
       setStats(s);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load habit details');
+      showAlert('Error', err.message || 'Failed to load habit details', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -47,18 +48,17 @@ export const HabitDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       await HabitRepository.checkInHabit(habitId);
       await loadData();
     } catch (err: any) {
-      Alert.alert('Check-in Failed', err.message || 'Failed to log check-in');
+      showAlert('Check-in Failed', err.message || 'Failed to log check-in', 'error');
     } finally {
       setIsCheckingIn(false);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert('Delete Habit', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
+    showAlert('Delete Habit', 'Are you sure you want to delete this habit?', 'warning', [
+      { text: 'Cancel', variant: 'secondary' },
       {
         text: 'Delete',
-        style: 'destructive',
         onPress: async () => {
           await HabitRepository.deleteHabit(habitId);
           navigation.goBack();
@@ -89,6 +89,7 @@ export const HabitDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         <Button variant="secondary" label="Edit Habit" onPress={() => navigation.navigate('EditHabit', { habitId: habit.id })} />
         <Button variant="danger" label="Delete Habit" onPress={handleDelete} />
       </ScrollView>
+      <CustomAlertModal />
     </View>
   );
 };

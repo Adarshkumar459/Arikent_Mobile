@@ -17,6 +17,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { TaskRepository } from '../../repositories/TaskRepository';
 import { TaskItem, TaskCategory, TaskPriority, TaskRecurrence } from '../../services/api/taskApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { DatePickerModal } from '../../components/modals/DatePickerModal';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'EditTask'>;
@@ -43,6 +44,7 @@ export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
   const [category, setCategory] = useState<TaskCategory>('personal');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [recurrence, setRecurrence] = useState<TaskRecurrence | null>(null);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const [dateISO, setDateISO] = useState<string>('');
   const [dateFormatted, setDateFormatted] = useState<string>('');
@@ -73,7 +75,7 @@ export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
         );
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to fetch task');
+      showAlert('Error', err.message || 'Failed to fetch task', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +87,7 @@ export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleUpdateTask = async () => {
     if (!title.trim() || !taskId) {
-      Alert.alert('Required Field', 'Please enter a task title');
+      showAlert('Required Field', 'Please enter a task title', 'warning');
       return;
     }
 
@@ -102,7 +104,7 @@ export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
 
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update task');
+      showAlert('Error', err.message || 'Failed to update task', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -249,6 +251,7 @@ export const EditTaskScreen: React.FC<Props> = ({ route, navigation }) => {
         }}
         onCancel={() => setIsDatePickerOpen(false)}
       />
+      <CustomAlertModal />
     </View>
   );
 };

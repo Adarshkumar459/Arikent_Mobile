@@ -17,6 +17,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { GoalRepository } from '../../repositories/GoalRepository';
 import { GoalCategory } from '../../services/api/goalApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { DatePickerModal } from '../../components/modals/DatePickerModal';
 
 type Props = NativeStackScreenProps<GoalsStackParamList, 'AddGoal'>;
@@ -46,6 +47,7 @@ export const CreateGoalScreen: React.FC<Props> = ({ navigation }) => {
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const handleAddMilestoneField = () => {
     setMilestones((prev) => [...prev, { title: '', targetValue: '' }]);
@@ -61,13 +63,13 @@ export const CreateGoalScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert('Required Field', 'Please enter a goal title');
+      showAlert('Required Field', 'Please enter a goal title', 'warning');
       return;
     }
 
     const numTarget = parseFloat(targetValue);
     if (isNaN(numTarget) || numTarget <= 0) {
-      Alert.alert('Required Field', 'Please enter a valid target value greater than 0');
+      showAlert('Required Field', 'Please enter a valid target value greater than 0', 'warning');
       return;
     }
 
@@ -97,7 +99,7 @@ export const CreateGoalScreen: React.FC<Props> = ({ navigation }) => {
 
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create goal');
+      showAlert('Error', err.message || 'Failed to create goal', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -273,6 +275,7 @@ export const CreateGoalScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onCancel={() => setIsDatePickerOpen(false)}
       />
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

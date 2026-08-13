@@ -53,7 +53,8 @@ const AppLockContext = createContext<AppLockContextType | undefined>(undefined);
 export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const userId = user?.id;
 
   const [lockState, setLockState] = useState<LockState>('LOADING');
   const [settings, setSettings] = useState<AppLockSettings>(DEFAULT_SETTINGS);
@@ -64,9 +65,11 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
   const lockStateRef = useRef<LockState>('LOADING');
   const settingsRef = useRef<AppLockSettings>(DEFAULT_SETTINGS);
   const backgroundedAtRef = useRef<number | null>(null);
+  const userIdRef = useRef<string | undefined>(userId);
 
   lockStateRef.current = lockState;
   settingsRef.current = settings;
+  userIdRef.current = userId;
 
   // ── Biometric availability (loaded on mount) ─────────────────────────────
 
@@ -91,15 +94,24 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
     refreshBiometricAvailability();
   }, [refreshBiometricAvailability]);
 
+  const isInitialMountRef = useRef(true);
+
   // ── Load App Lock state from SecureStore ─────────────────────────────────
 
-  const loadLockState = useCallback(async () => {
+  const loadLockState = useCallback(async (currentUserId?: string, isColdStart: boolean = false) => {
+    const targetUserId = currentUserId || userIdRef.current;
+    if (!targetUserId) {
+      setSettings(DEFAULT_SETTINGS);
+      setLockState('DISABLED');
+      return;
+    }
+
     setLockState('LOADING');
     try {
-      const savedSettings = await lockStorage.getSettings();
+      const savedSettings = await lockStorage.getSettings(targetUserId);
 
       if (savedSettings === null || !savedSettings.pinConfigured) {
-        // First run or no PIN configured → App Lock is off
+        // First run or no PIN configured for this user → App Lock is off
         setSettings(DEFAULT_SETTINGS);
         setLockState('DISABLED');
         return;
@@ -112,16 +124,22 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
         return;
       }
 
-      // App Lock is marked enabled — validate PIN material integrity
-      const pinMaterial = await lockStorage.getPinMaterial();
+      // App Lock is marked enabled — validate PIN material integrity for this user
+      const pinMaterial = await lockStorage.getPinMaterial(targetUserId);
       if (!pinMaterial) {
         // Inconsistent state: enabled=true but no PIN material. FAIL CLOSED.
         setLockState('ERROR');
         return;
       }
 
-      // Everything looks good — lock on startup
-      setLockState('LOCKED');
+      // App Lock is enabled & valid:
+      // If cold start (app launch), lock immediately.
+      // If fresh login (user just entered password), start UNLOCKED for this session.
+      if (isColdStart) {
+        setLockState('LOCKED');
+      } else {
+        setLockState('UNLOCKED');
+      }
     } catch {
       // SecureStore error → FAIL CLOSED
       setLockState('ERROR');
@@ -129,20 +147,16 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadLockState();
-    }
-  }, [isAuthenticated, loadLockState]);
-
-  // ── Logout detection ─────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!isAuthenticated && lockStateRef.current !== 'LOADING') {
+    if (isAuthenticated && userId) {
+      const isColdStart = isInitialMountRef.current;
+      isInitialMountRef.current = false;
+      loadLockState(userId, isColdStart);
+    } else {
       setLockState('DISABLED');
       setSettings(DEFAULT_SETTINGS);
       backgroundedAtRef.current = null;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userId, loadLockState]);
 
   // ── AppState subscription for auto-lock ─────────────────────────────────
 
@@ -216,11 +230,11 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
   const setupPin = useCallback(async (pin: string): Promise<void> => {
     const salt = await generateSalt();
     const hash = await derivePinHash(pin, salt);
-    await lockStorage.savePinMaterial(hash, salt);
+    await lockStorage.savePinMaterial(hash, salt, userIdRef.current);
   }, []);
 
   const verifyPin = useCallback(async (pin: string): Promise<boolean> => {
-    const material = await lockStorage.getPinMaterial();
+    const material = await lockStorage.getPinMaterial(userIdRef.current);
     if (!material) return false;
     return verifyPinAgainstHash(pin, material.hash, material.salt);
   }, []);
@@ -237,7 +251,7 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const clearPin = useCallback(async (): Promise<void> => {
-    await lockStorage.clearPinMaterial();
+    await lockStorage.clearPinMaterial(userIdRef.current);
   }, []);
 
   // ── PIN unlock ───────────────────────────────────────────────────────────
@@ -273,7 +287,7 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
         biometricEnabled: false, // Biometric OFF by default
         timeout,
       };
-      await lockStorage.saveSettings(newSettings);
+      await lockStorage.saveSettings(newSettings, userIdRef.current);
       setSettings(newSettings);
       setLockState('UNLOCKED');
     },
@@ -290,7 +304,7 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
     ): Promise<{ success: boolean; reason?: string }> => {
       if (!enabled) {
         const updated = { ...settingsRef.current, biometricEnabled: false };
-        await lockStorage.saveSettings(updated);
+        await lockStorage.saveSettings(updated, userIdRef.current);
         setSettings(updated);
         return { success: true };
       }
@@ -319,7 +333,7 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
 
         if (result.success) {
           const updated = { ...settingsRef.current, biometricEnabled: true };
-          await lockStorage.saveSettings(updated);
+          await lockStorage.saveSettings(updated, userIdRef.current);
           setSettings(updated);
           setLockState('UNLOCKED');
           return { success: true };
@@ -346,7 +360,7 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
   const updateTimeout = useCallback(
     async (newTimeout: AutoLockTimeout): Promise<void> => {
       const updated = { ...settingsRef.current, timeout: newTimeout };
-      await lockStorage.saveSettings(updated);
+      await lockStorage.saveSettings(updated, userIdRef.current);
       setSettings(updated);
     },
     [],
@@ -356,13 +370,13 @@ export const AppLockProvider: React.FC<{ children: ReactNode }> = ({
    * Disable App Lock (#12).
    */
   const disableAppLock = useCallback(async (): Promise<void> => {
-    await lockStorage.clearAll();
+    await lockStorage.clearAll(userIdRef.current);
     setSettings(DEFAULT_SETTINGS);
     setLockState('DISABLED');
   }, []);
 
   const retryLoadState = useCallback(async (): Promise<void> => {
-    await loadLockState();
+    await loadLockState(userIdRef.current);
   }, [loadLockState]);
 
   return (

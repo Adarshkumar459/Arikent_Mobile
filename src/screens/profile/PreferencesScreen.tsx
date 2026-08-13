@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '../../navigation/types/navigation.types';
 import { colors, spacing } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { DropdownInput } from '../../components/inputs';
 import { PrimaryButton } from '../../components/buttons';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<ProfileStackParamList, 'Preferences'>;
 
@@ -31,9 +32,10 @@ export const PreferencesScreen: React.FC<Props> = ({ navigation }) => {
   const [currency, setCurrency] = useState('INR');
   const [startDay, setStartDay] = useState('Monday');
   const [themePref, setThemePref] = useState('system');
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const handleSave = () => {
-    Alert.alert('Success', 'App preferences saved successfully', [
+    showAlert('Success', 'App preferences saved successfully', 'success', [
       { text: 'OK', onPress: () => navigation.goBack() },
     ]);
   };
@@ -58,16 +60,19 @@ export const PreferencesScreen: React.FC<Props> = ({ navigation }) => {
         />
 
         <DropdownInput
-          label="APP THEME"
+          label="APPEARANCE"
           options={THEME_OPTIONS}
           value={themePref}
           onSelect={setThemePref}
         />
 
-        <View style={styles.actionWrapper}>
-          <PrimaryButton title="Save Preferences" onPress={handleSave} />
-        </View>
+        <PrimaryButton
+          title="Save Preferences"
+          onPress={handleSave}
+          style={styles.saveBtn}
+        />
       </ScrollView>
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };
@@ -79,9 +84,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  actionWrapper: {
+  saveBtn: {
     marginTop: spacing.md,
   },
 });

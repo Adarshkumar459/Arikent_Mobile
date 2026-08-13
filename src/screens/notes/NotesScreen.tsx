@@ -17,6 +17,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { NoteRepository } from '../../repositories/NoteRepository';
 import { NoteItem } from '../../services/api/noteApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteList'>;
 
@@ -44,6 +45,7 @@ export const NotesScreen: React.FC<Props> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchNotes = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -85,7 +87,7 @@ export const NotesScreen: React.FC<Props> = ({ navigation }) => {
       const updated = await NoteRepository.togglePin(note.id, !note.isPinned);
       setNotes((prev) => prev.map((n) => (n.id === note.id ? updated : n)));
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to pin note');
+      showAlert('Error', err.message || 'Failed to pin note', 'error');
     }
   };
 
@@ -260,6 +262,7 @@ export const NotesScreen: React.FC<Props> = ({ navigation }) => {
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+      <CustomAlertModal />
     </View>
   );
 };

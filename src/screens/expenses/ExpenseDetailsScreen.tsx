@@ -16,6 +16,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { ExpenseRepository } from '../../repositories/ExpenseRepository';
 import { ExpenseItem } from '../../services/api/expenseApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { ConfirmationModal } from '../../components/modals/ConfirmationModal';
 
 type Props = NativeStackScreenProps<ExpensesStackParamList, 'ExpenseDetails'>;
@@ -25,15 +26,18 @@ export const ExpenseDetailsScreen: React.FC<Props> = ({ route, navigation }) => 
   const [expense, setExpense] = useState<ExpenseItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const fetchDetails = async () => {
+    if (!expenseId) return;
     setIsLoading(true);
     try {
       const data = await ExpenseRepository.getExpenseById(expenseId);
       setExpense(data);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load expense details');
-      navigation.goBack();
+      showAlert('Error', err.message || 'Failed to load expense details', 'error', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +57,7 @@ export const ExpenseDetailsScreen: React.FC<Props> = ({ route, navigation }) => 
       setIsDeleteModalVisible(false);
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete expense');
+      showAlert('Error', err.message || 'Failed to delete expense', 'error');
     }
   };
 
@@ -176,6 +180,7 @@ export const ExpenseDetailsScreen: React.FC<Props> = ({ route, navigation }) => 
         onConfirm={handleDelete}
         onCancel={() => setIsDeleteModalVisible(false)}
       />
+      <CustomAlertModal />
     </SafeAreaView>
   );
 };

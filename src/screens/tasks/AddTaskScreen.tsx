@@ -17,6 +17,7 @@ import { colors, spacing, typography, radius, elevation } from '../../theme';
 import { ScreenHeader } from '../../components/navigation/ScreenHeader';
 import { TaskRepository } from '../../repositories/TaskRepository';
 import { TaskCategory, TaskPriority, TaskRecurrence } from '../../services/api/taskApi';
+import { useCustomAlert } from '../../components/alerts/CustomAlert';
 import { DatePickerModal } from '../../components/modals/DatePickerModal';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'AddTask'>;
@@ -49,10 +50,11 @@ export const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
 
   const [notifyMe, setNotifyMe] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showAlert, CustomAlertModal } = useCustomAlert();
 
   const handleCreateTask = async () => {
     if (!title.trim()) {
-      Alert.alert('Required Field', 'Please enter a task title');
+      showAlert('Required Field', 'Please enter a task title', 'warning');
       return;
     }
 
@@ -69,7 +71,7 @@ export const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
 
       navigation.goBack();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to create task');
+      showAlert('Error', err.message || 'Failed to create task', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -205,6 +207,7 @@ export const AddTaskScreen: React.FC<Props> = ({ navigation }) => {
         }}
         onCancel={() => setIsDatePickerOpen(false)}
       />
+      <CustomAlertModal />
     </View>
   );
 };
